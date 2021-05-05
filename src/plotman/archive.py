@@ -86,8 +86,14 @@ def compute_priority(phase, gb_free, n_plots):
 
 def get_archdir_freebytes(arch_cfg):
     archdir_freebytes = {}
-    df_cmd = ('ssh %s@%s df -aBK | grep " %s/"' %
-        (arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, arch_cfg.rsyncd_path) )
+    just_df_cmd = 'df -aBK'
+    if arch_cfg.mode == 'remote':
+        df_cmd = ('ssh %s@%s %s | grep " %s/"' %
+            (arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, just_df_cmd, arch_cfg.rsyncd_path) )
+    elif arch_cfg.mode == 'local':
+        df_cmd = '%s | grep " %s/"' % (just_df_cmd, arch_cfg.rsyncd_path)
+    else:
+        raise KeyError(f'Archive mode must be "remote" or "local" ({arch_cfg.mode!r} given). Please inspect plotman.yaml.')
     with subprocess.Popen(df_cmd, shell=True, stdout=subprocess.PIPE) as proc:
         for line in proc.stdout.readlines():
             fields = line.split()
@@ -100,11 +106,16 @@ def get_archdir_freebytes(arch_cfg):
     return archdir_freebytes
 
 def rsync_dest(arch_cfg, arch_dir):
-    rsync_path = arch_dir.replace(arch_cfg.rsyncd_path, arch_cfg.rsyncd_module)
-    if rsync_path.startswith('/'):
-        rsync_path = rsync_path[1:]  # Avoid dup slashes.  TODO use path join?
-    rsync_url = 'rsync://%s@%s:12000/%s' % (
-            arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, rsync_path)
+    if arch_cfg.mode == 'remote':
+        rsync_path = arch_dir.replace(arch_cfg.rsyncd_path, arch_cfg.rsyncd_module)
+        if rsync_path.startswith('/'):
+            rsync_path = rsync_path[1:]  # Avoid dup slashes.  TODO use path join?
+        rsync_url = 'rsync://%s@%s:12000/%s' % (
+                arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, rsync_path)
+    elif arch_cfg.mode == 'local':
+        rsync_url = arch_dir
+    else:
+        raise KeyError(f'Archive mode must be "remote" or "local" ("{arch_cfg.mode!r}" given). Please inspect plotman.yaml.')
     return rsync_url
 
 # TODO: maybe consolidate with similar code in job.py?
