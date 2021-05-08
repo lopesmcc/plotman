@@ -370,7 +370,7 @@ class Job:
         # Prevent duplicate file paths by using set.
         temp_files = set([])
         for f in self.proc.open_files():
-            if self.tmpdir in f.path or self.tmp2dir in f.path or self.dstdir in f.path:
+            if self.tmpdir in f.path or self.tmp2dir in f.path or (self.dstdir is not None and self.dstdir in f.path):
                 temp_files.add(f.path)
         return temp_files
 
