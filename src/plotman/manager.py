@@ -14,7 +14,7 @@ import psutil
 
 # Plotman libraries
 from plotman import \
-    archive  # for get_archdir_freebytes(). TODO: move to avoid import loop
+    archive, configuration  # for get_archdir_freebytes(). TODO: move to avoid import loop
 from plotman import job, plot_util
 
 # Constants
@@ -94,14 +94,18 @@ def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg):
             tmpdir = max(rankable, key=operator.itemgetter(1))[0]
 
             # Select the dst dir least recently selected
-            dir2ph = { d:ph for (d, ph) in dstdirs_to_youngest_phase(jobs).items()
-                      if d in dir_cfg.dst and ph is not None}
-            unused_dirs = [d for d in dir_cfg.dst if d not in dir2ph.keys()]
-            dstdir = ''
-            if unused_dirs: 
-                dstdir = random.choice(unused_dirs)
+            (is_dst, dst_dir) = configuration.get_dst_directories(dir_cfg)
+            if is_dst:
+                dir2ph = { d:ph for (d, ph) in dstdirs_to_youngest_phase(jobs).items()
+                          if d in dst_dir and ph is not None}
+                unused_dirs = [d for d in dst_dir if d not in dir2ph.keys()]
+                dstdir = ''
+                if unused_dirs:
+                    dstdir = random.choice(unused_dirs)
+                else:
+                    dstdir = max(dir2ph, key=dir2ph.get)
             else:
-                dstdir = max(dir2ph, key=dir2ph.get)
+                dstdir = tmpdir
 
             logfile = os.path.join(
                 dir_cfg.log, pendulum.now().isoformat(timespec='microseconds').replace(':', '_') + '.log'
