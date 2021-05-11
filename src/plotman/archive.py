@@ -11,7 +11,7 @@ from datetime import datetime
 import psutil
 import texttable as tt
 
-from plotman import manager, configuration, plot_util
+from plotman import job, manager, configuration, plot_util
 
 # TODO : write-protect and delete-protect archived plots
 
@@ -62,14 +62,14 @@ def compute_priority(phase, gb_free, n_plots):
     # To avoid concurrent IO, we should not touch drives that
     # are about to receive a new plot.  If we don't know the phase,
     # ignore.
-    if (phase[0] and phase[1]):
-        if (phase == (3, 4)):
+    if (phase.known):
+        if (phase == job.Phase(3, 4)):
             priority -= 4
-        elif (phase == (3, 5)):
+        elif (phase == job.Phase(3, 5)):
             priority -= 8
-        elif (phase == (3, 6)):
+        elif (phase == job.Phase(3, 6)):
             priority -= 16
-        elif (phase >= (3, 7)):
+        elif (phase >= job.Phase(3, 7)):
             priority -= 32
         
     # If a drive is getting full, we should prioritize it
@@ -181,7 +181,7 @@ def archive(dir_cfg, all_jobs):
 
     bwlimit = dir_cfg.archive.rsyncd_bwlimit
     throttle_arg = ('--bwlimit=%d' % bwlimit) if bwlimit else ''
-    cmd = ('rsync %s --remove-source-files -P %s %s' %
+    cmd = ('rsync %s --no-compress --remove-source-files -P %s %s' %
             (throttle_arg, chosen_plot, rsync_dest(dir_cfg.archive, archdir)))
 
     return (True, cmd)
