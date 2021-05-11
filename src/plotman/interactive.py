@@ -129,9 +129,9 @@ def curses_main(stdscr):
             last_refresh = datetime.datetime.now()
             jobs = Job.get_running_jobs(cfg.directories.log)
 
-            if plotting_active:
+            if plotting_active or is_external_plotting_active(cfg):
                 (started, msg) = manager.maybe_start_new_plot(
-                    cfg.directories, cfg.scheduling, cfg.plotting
+                    cfg.directories, cfg.scheduling, cfg.plotting, should_use_external_plotting(cfg)
                 )
                 if (started):
                     if aging_reason is not None:
@@ -372,8 +372,6 @@ def is_external_plotting_active(cfg):
 
 
 def toggle_external_plotter(cfg):
-    if not should_use_external_plotting(cfg):
-        return
     if is_external_plotting_active(cfg):
         cmd = shlex.split(cfg.user_interface.stop_plotter_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
@@ -406,8 +404,6 @@ def is_external_archiving_active(cfg):
 
 
 def toggle_external_archiver(cfg):
-    if not should_use_external_archiver(cfg):
-        return
     if is_external_archiving_active(cfg):
         cmd = shlex.split(cfg.user_interface.stop_archiver_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)

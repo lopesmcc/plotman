@@ -72,7 +72,7 @@ def phases_permit_new_job(phases, d, sched_cfg, dir_cfg):
 
     return True
 
-def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg):
+def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg, dryrun = False):
     jobs = job.Job.get_running_jobs(dir_cfg.log)
 
     wait_reason = None  # If we don't start a job this iteration, this says why.
@@ -133,6 +133,9 @@ def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg):
             if dir_cfg.tmp2 is not None:
                 plot_args.append('-2')
                 plot_args.append(dir_cfg.tmp2)
+
+            if dryrun:
+                return (True, 'Should be starting plot job: %s ; logging to %s' % (' '.join(plot_args), logfile))
 
             logmsg = ('Starting plot job: %s ; logging to %s' % (' '.join(plot_args), logfile))
 
