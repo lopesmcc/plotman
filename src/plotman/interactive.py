@@ -249,7 +249,7 @@ def curses_main(stdscr):
         header_win.addnstr(f" {timestamp} (refresh {refresh_msg})", linecap)
         header_win.addnstr('  |  <P>lotting: ', linecap, curses.A_BOLD)
         header_win.addnstr(
-                plotting_status_msg(plotting_active, plotting_status), linecap)
+                plotting_status_msg(plotting_active or is_external_plotting_active(cfg), plotting_status), linecap)
         header_win.addnstr(' <A>rchival: ', linecap, curses.A_BOLD)
         header_win.addnstr(
                 archiving_status_msg(archiving_configured,
