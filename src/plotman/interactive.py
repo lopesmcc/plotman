@@ -337,7 +337,7 @@ def curses_main(stdscr):
                 plotting_active = not plotting_active
             pressed_key = 'p'
         elif key == ord('a'):
-            if should_use_external_archiving(cfg):
+            if should_use_external_archiver(cfg):
                 toggle_external_archiver(cfg)
             else:
                 archiving_active = not archiving_active
