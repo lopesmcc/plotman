@@ -5,6 +5,8 @@ import math
 import os
 import subprocess
 import shlex
+import time
+import select
 from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
 
 from plotman import archive, configuration, manager, reporting
