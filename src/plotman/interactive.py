@@ -77,8 +77,8 @@ def curses_main(stdscr):
     log_poller = None
     log_cmd_process = None
     if is_using_external_log:
-        cmd = shlex.split(cfg.user_interface.external_log_cmd)
-        log_cmd_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cmd = cfg.user_interface.external_log_cmd
+        log_cmd_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         log_poller = select.poll()
         log_poller.register(log_cmd_process.stdout)
 
