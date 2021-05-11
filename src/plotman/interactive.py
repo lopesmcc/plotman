@@ -4,6 +4,7 @@ import locale
 import math
 import os
 import subprocess
+from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
 
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
@@ -69,7 +70,15 @@ def curses_main(stdscr):
     config_text = configuration.read_configuration_text(config_path)
     cfg = configuration.get_validated_configs(config_text, config_path)
 
-    plotting_active = True
+    is_using_external_log = cfg.user_interface.external_log_cmd is not None
+    log_poller = None
+    if is_using_external_log:
+        cmd = shlex.split(cfg.user_interface.external_log_cmd)
+        log_cmd_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        log_poller = select.poll()
+        log_poller.register(log_cmd_process.stdout)
+
+    plotting_active = not should_use_external_plotting(cfg)
     archiving_configured = cfg.directories.archive is not None
     archiving_active = archiving_configured
 
@@ -94,6 +103,8 @@ def curses_main(stdscr):
     aging_reason = None
 
     while True:
+        if is_using_external_log and log_poller.poll(1):
+            log.log(log_poller.stdout.readline())
 
         # A full refresh scans for and reads info for running jobs from
         # scratch (i.e., reread their logfiles).  Otherwise we'll only
@@ -315,7 +326,10 @@ def curses_main(stdscr):
             log.shift_slice_to_end()
             pressed_key = 'end'
         elif key == ord('p'):
-            plotting_active = not plotting_active
+            if should_use_external_plotting(cfg):
+                toggle_external_plotter(cfg)
+            else:
+                plotting_active = not plotting_active
             pressed_key = 'p'
         elif key == ord('a'):
             archiving_active = not archiving_active
@@ -324,6 +338,40 @@ def curses_main(stdscr):
             break
         else:
             pressed_key = key
+
+
+def should_use_external_plotting(cfg):
+    has_start_plotter_cmd = cfg.user_interface.start_plotter_cmd is not None
+    has_stop_plotter_cmd = cfg.user_interface.stop_plotter_cmd is not None
+    has_is_plotter_active_cmd = cfg.user_interface.is_plotter_active_cmd is not None
+    if has_start_plotter_cmd and has_stop_plotter_cmd and has_is_plotter_active_cmd:
+        return True
+    if has_start_plotter_cmd or has_stop_plotter_cmd or has_is_plotter_active_cmd:
+        raise Exception('Invalid configuration for the UI external plotter control: '
+                        'all 3 fields are required to enable it.')
+    return False
+
+
+def is_external_plotting_active(cfg):
+    if not should_use_external_plotting(cfg):
+        return False
+    cmd = shlex.split(cfg.user_interface.is_plotter_active_cmd)
+    try:
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+        return True
+    except CalledProcessError as e:
+        return False
+
+
+def toggle_external_plotter(cfg):
+    if not should_use_external_plotting(cfg):
+        return
+    if is_external_plotting_active(cfg):
+        cmd = shlex.split(cfg.user_interface.stop_plotter_cmd)
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+    else:
+        cmd = shlex.split(cfg.user_interface.start_plotter_cmd)
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
 
 
 def run_interactive():
