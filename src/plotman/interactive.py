@@ -78,13 +78,13 @@ def curses_main(stdscr):
     log_cmd_process = None
     if is_using_external_log:
         cmd = cfg.user_interface.external_log_cmd
-        log_cmd_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        log_cmd_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         log_poller = select.poll()
         log_poller.register(log_cmd_process.stdout)
 
     plotting_active = not should_use_external_plotting(cfg)
     archiving_configured = cfg.directories.archive is not None
-    archiving_active = archiving_configured
+    archiving_active = archiving_configured and not should_use_external_plotting(cfg)
 
     plotting_status = '<startup>'    # todo rename these msg?
     archiving_status = '<startup>'
@@ -253,7 +253,7 @@ def curses_main(stdscr):
         header_win.addnstr(' <A>rchival: ', linecap, curses.A_BOLD)
         header_win.addnstr(
                 archiving_status_msg(archiving_configured,
-                    archiving_active, archiving_status), linecap) 
+                    archiving_active or is_external_archiving_active(cfg), archiving_status), linecap)
 
         # Oneliner progress display
         header_win.addnstr(1, 0, 'Jobs (%d): ' % len(jobs), linecap)
@@ -337,7 +337,10 @@ def curses_main(stdscr):
                 plotting_active = not plotting_active
             pressed_key = 'p'
         elif key == ord('a'):
-            archiving_active = not archiving_active
+            if should_use_external_archiving(cfg):
+                toggle_external_archiver(cfg)
+            else:
+                archiving_active = not archiving_active
             pressed_key = 'a'
         elif key == ord('q'):
             break
@@ -376,6 +379,40 @@ def toggle_external_plotter(cfg):
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
     else:
         cmd = shlex.split(cfg.user_interface.start_plotter_cmd)
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+
+
+def should_use_external_archiver(cfg):
+    has_start_archiver_cmd = cfg.user_interface.start_archiver_cmd is not None
+    has_stop_archiver_cmd = cfg.user_interface.stop_archiver_cmd is not None
+    has_is_archiver_active_cmd = cfg.user_interface.is_archiver_active_cmd is not None
+    if has_start_archiver_cmd and has_stop_archiver_cmd and has_is_archiver_active_cmd:
+        return True
+    if has_start_archiver_cmd or has_stop_archiver_cmd or has_is_archiver_active_cmd:
+        raise Exception('Invalid configuration for the UI external archiver control: '
+                        'all 3 fields are required to enable it.')
+    return False
+
+
+def is_external_archiving_active(cfg):
+    if not should_use_external_archiver(cfg):
+        return False
+    cmd = shlex.split(cfg.user_interface.is_archiver_active_cmd)
+    try:
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+        return True
+    except CalledProcessError as e:
+        return False
+
+
+def toggle_external_archiver(cfg):
+    if not should_use_external_archiver(cfg):
+        return
+    if is_external_archiving_active(cfg):
+        cmd = shlex.split(cfg.user_interface.stop_archiver_cmd)
+        check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+    else:
+        cmd = shlex.split(cfg.user_interface.start_archiver_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
 
 
