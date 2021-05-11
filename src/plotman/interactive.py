@@ -4,6 +4,7 @@ import locale
 import math
 import os
 import subprocess
+import shlex
 from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
 
 from plotman import archive, configuration, manager, reporting
