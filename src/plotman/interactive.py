@@ -75,6 +75,7 @@ def curses_main(stdscr):
 
     is_using_external_log = cfg.user_interface.external_log_cmd is not None
     log_poller = None
+    log_cmd_process = None
     if is_using_external_log:
         cmd = shlex.split(cfg.user_interface.external_log_cmd)
         log_cmd_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -107,7 +108,7 @@ def curses_main(stdscr):
 
     while True:
         if is_using_external_log and log_poller.poll(1):
-            log.log(log_poller.stdout.readline())
+            log.log(log_cmd_process.stdout.readline())
 
         # A full refresh scans for and reads info for running jobs from
         # scratch (i.e., reread their logfiles).  Otherwise we'll only
