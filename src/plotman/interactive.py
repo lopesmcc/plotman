@@ -108,7 +108,8 @@ def curses_main(stdscr):
 
     while True:
         if is_using_external_log and log_poller.poll(1):
-            log.log(log_cmd_process.stdout.readline())
+            line = log_cmd_process.stdout.readline()
+            log.log(line.rstrip())
 
         # A full refresh scans for and reads info for running jobs from
         # scratch (i.e., reread their logfiles).  Otherwise we'll only
