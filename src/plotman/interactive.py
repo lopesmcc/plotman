@@ -6,11 +6,15 @@ import os
 import subprocess
 import shlex
 import time
-import select
-from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
+import sys
+from subprocess import Popen, PIPE, DEVNULL, STDOUT, check_call, CalledProcessError
+from threading  import Thread
 
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
+
+
+ON_POSIX = 'posix' in sys.builtin_module_names
 
 
 class TerminalTooSmallError(Exception):
@@ -73,14 +77,12 @@ def curses_main(stdscr):
     config_text = configuration.read_configuration_text(config_path)
     cfg = configuration.get_validated_configs(config_text, config_path)
 
-    is_using_external_log = cfg.user_interface.external_log_cmd is not None
-    log_poller = None
-    log_cmd_process = None
-    if is_using_external_log:
+    if cfg.user_interface.external_log_cmd is not None:
         cmd = cfg.user_interface.external_log_cmd
-        log_cmd_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        log_poller = select.poll()
-        log_poller.register(log_cmd_process.stdout)
+        process = Popen(cmd, shell=True, stdout=PIPE, bufsize=1, close_fds=ON_POSIX)
+        thread = Thread(target=log_output, args=(process.stdout, log))
+        thread.daemon = True
+        thread.start()
 
     plotting_active = not should_use_external_plotting(cfg)
     archiving_configured = cfg.directories.archive is not None
@@ -107,10 +109,6 @@ def curses_main(stdscr):
     aging_reason = None
 
     while True:
-        if is_using_external_log and log_poller.poll(1):
-            line = log_cmd_process.stdout.readline()
-            log.log(line.decode('utf-8').rstrip())
-
         # A full refresh scans for and reads info for running jobs from
         # scratch (i.e., reread their logfiles).  Otherwise we'll only
         # initialize new jobs, and mostly rely on cached info.
@@ -134,10 +132,11 @@ def curses_main(stdscr):
                     cfg.directories, cfg.scheduling, cfg.plotting, should_use_external_plotting(cfg)
                 )
                 if (started):
-                    if aging_reason is not None:
-                        log.log(aging_reason)
-                        aging_reason = None
-                    log.log(msg)
+                    if not should_use_external_plotting(cfg):
+                        if aging_reason is not None:
+                            log.log(aging_reason)
+                            aging_reason = None
+                        log.log(msg)
                     plotting_status = '<just started job>'
                     jobs = Job.get_running_jobs(cfg.directories.log, cached_jobs=jobs)
                 else:
@@ -410,6 +409,12 @@ def toggle_external_archiver(cfg):
     else:
         cmd = shlex.split(cfg.user_interface.start_archiver_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
+
+
+def log_output(out, logger):
+    for line in iter(out.readline, b''):
+        logger.log(line.decode('utf-8').rstrip())
+    out.close()
 
 
 def run_interactive():
