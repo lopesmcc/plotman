@@ -176,7 +176,7 @@ def main():
 
         # Start running archival
         elif args.cmd == 'archive':
-            print('...starting archive loop')
+            print('...starting archive loop', flush=True)
             firstit = True
             while True:
                 if not firstit:
@@ -187,7 +187,7 @@ def main():
 
                 archiving_status, log_message = archive.spawn_archive_process(cfg.directories, jobs)
                 if log_message:
-                    print(log_message)
+                    print(log_message, flush=True)
 
 
         # Debugging: show the destination drive usage schedule

@@ -146,8 +146,8 @@ def curses_main(stdscr):
                     plotting_status = msg
 
             if archiving_configured:
-                if archiving_active:
-                    archiving_status, log_message = archive.spawn_archive_process(cfg.directories, jobs)
+                if archiving_active or is_external_archiving_active(cfg):
+                    archiving_status, log_message = archive.spawn_archive_process(cfg.directories, jobs, should_use_external_archiver(cfg))
                     if log_message:
                         log.log(log_message)
 

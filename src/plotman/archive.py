@@ -15,7 +15,7 @@ from plotman import job, manager, configuration, plot_util
 
 # TODO : write-protect and delete-protect archived plots
 
-def spawn_archive_process(dir_cfg, all_jobs):
+def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
     '''Spawns a new archive process using the command created 
     in the archive() function. Returns archiving status and a log message to print.'''
 
@@ -31,14 +31,15 @@ def spawn_archive_process(dir_cfg, all_jobs):
         if not should_start:
             archiving_status = status_or_cmd
         else:
-            cmd = status_or_cmd
-            # TODO: do something useful with output instead of DEVNULL
-            p = subprocess.Popen(cmd,
-                    shell=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True) 
-            log_message = 'Starting archive: ' + cmd
+            if not dryrun:
+                cmd = status_or_cmd
+                # TODO: do something useful with output instead of DEVNULL
+                p = subprocess.Popen(cmd,
+                        shell=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True)
+                log_message = 'Starting archive: ' + cmd
             # At least for now it seems that even if we get a new running
             # archive jobs list it doesn't contain the new rsync process.
             # My guess is that this is because the bash in the middle due to
