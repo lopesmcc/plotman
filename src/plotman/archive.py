@@ -46,7 +46,7 @@ def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
             # shell=True is still starting up and really hasn't launched the
             # new rsync process yet.  So, just put a placeholder here.  It
             # will get filled on the next cycle.
-            arch_jobs.append('<pending>')
+            arch_jobs.add('<pending>')
 
     if archiving_status is None:
         archiving_status = 'pid: ' + ', '.join(map(str, arch_jobs))
