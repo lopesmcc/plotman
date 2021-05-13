@@ -132,7 +132,7 @@ def get_running_archive_jobs(arch_cfg):
                     args = proc.cmdline()
                     for arg in args:
                         if arg.startswith(dest):
-                            jobs.append(proc.pid)
+                            jobs.add(proc.pid)
     return jobs
 
 def archive(dir_cfg, all_jobs):
