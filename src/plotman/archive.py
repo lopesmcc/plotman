@@ -123,7 +123,7 @@ def rsync_dest(arch_cfg, arch_dir):
 def get_running_archive_jobs(arch_cfg):
     '''Look for running rsync jobs that seem to match the pattern we use for archiving
        them.  Return a list of PIDs of matching jobs.'''
-    jobs = []
+    jobs = {}
     dest = rsync_dest(arch_cfg, '/')
     for proc in psutil.process_iter(['pid', 'name']):
         with contextlib.suppress(psutil.NoSuchProcess):
