@@ -128,10 +128,11 @@ def get_running_archive_jobs(arch_cfg):
     for proc in psutil.process_iter(['pid', 'name']):
         with contextlib.suppress(psutil.NoSuchProcess):
             if proc.name() == 'rsync':
-                args = proc.cmdline()
-                for arg in args:
-                    if arg.startswith(dest):
-                        jobs.append(proc.pid)
+                if proc.parent() is None or proc.name() != proc.parent().name():
+                    args = proc.cmdline()
+                    for arg in args:
+                        if arg.startswith(dest):
+                            jobs.append(proc.pid)
     return jobs
 
 def archive(dir_cfg, all_jobs):
