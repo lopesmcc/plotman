@@ -146,9 +146,9 @@ def main():
 
             # TODO: report this via a channel that can be polled on demand, so we don't spam the console
             if started:
-                print(msg)
+                print(msg, flush=True)
             else:
-                print('...sleeping %d s: %s' % (cfg.scheduling.polling_time_s, msg))
+                print('...sleeping %d s: %s' % (cfg.scheduling.polling_time_s, msg), flush=True)
 
             time.sleep(cfg.scheduling.polling_time_s)
 
