@@ -107,6 +107,7 @@ class Plotting:
 @attr.frozen
 class UserInterface:
     use_stty_size: bool = True
+    show_logs: bool = True
     start_plotter_cmd: Optional[str] = None
     stop_plotter_cmd: Optional[str] = None
     is_plotter_active_cmd: Optional[str] = None

@@ -8,6 +8,7 @@ user_interface:
         # `plotman interactive` curses interface does not properly adjust when
         # you resize the terminal window, you can try setting this to True. 
         use_stty_size: True
+        show_logs: True
 
 # Where to plot and log.
 directories:

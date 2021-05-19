@@ -217,7 +217,6 @@ def curses_main(stdscr):
         dirs_h = max(tmp_h, dst_h) + arch_h
         remainder = n_rows - (header_h + dirs_h)
         jobs_h = max(5, math.floor(remainder * 0.6))
-        logs_h = n_rows - (header_h + jobs_h + dirs_h)
 
         header_pos = 0
         jobs_pos = header_pos + header_h
@@ -226,11 +225,17 @@ def curses_main(stdscr):
         logscreen_pos = dirs_pos + dirs_h
 
         linecap = n_cols - 1
-        logs_h = n_rows - (header_h + jobs_h + dirs_h)
+        if cfg.user_interface.show_logs:
+            logs_h = n_rows - (header_h + jobs_h + dirs_h)
+        else:
+            logs_h = 0
+            jobs_h = n_rows - (header_h + dirs_h)
+            dirs_pos = jobs_pos + jobs_h
 
         try:
             header_win = curses.newwin(header_h, n_cols, header_pos, 0)
-            log_win = curses.newwin(logs_h, n_cols, logscreen_pos, 0)
+            if cfg.user_interface.show_logs:
+                log_win = curses.newwin(logs_h, n_cols, logscreen_pos, 0)
             jobs_win = curses.newwin(jobs_h, n_cols, jobs_pos, 0)
             dirs_win = curses.newwin(dirs_h, n_cols, dirs_pos, 0)
         except Exception:
@@ -299,12 +304,13 @@ def curses_main(stdscr):
         archwin.addstr(0, 0, 'Archive dirs free space', curses.A_REVERSE)
         archwin.addstr(1, 0, arch_report)
 
-        # Log.  Could use a pad here instead of managing scrolling ourselves, but
-        # this seems easier.
-        log_win.addnstr(0, 0, ('Log: %d (<up>/<down>/<end> to scroll)\n' % log.get_cur_pos() ),
-                linecap, curses.A_REVERSE)
-        for i, logline in enumerate(log.cur_slice(logs_h - 1)):
-            log_win.addnstr(i + 1, 0, logline, linecap)
+        if cfg.user_interface.show_logs:
+            # Log.  Could use a pad here instead of managing scrolling ourselves, but
+            # this seems easier.
+            log_win.addnstr(0, 0, ('Log: %d (<up>/<down>/<end> to scroll)\n' % log.get_cur_pos() ),
+                    linecap, curses.A_REVERSE)
+            for i, logline in enumerate(log.cur_slice(logs_h - 1)):
+                log_win.addnstr(i + 1, 0, logline, linecap)
 
         stdscr.noutrefresh()
         header_win.noutrefresh()
@@ -312,7 +318,8 @@ def curses_main(stdscr):
         tmpwin.noutrefresh()
         dstwin.noutrefresh()
         archwin.noutrefresh()
-        log_win.noutrefresh()
+        if cfg.user_interface.show_logs:
+            log_win.noutrefresh()
         curses.doupdate()
 
         try:
