@@ -91,6 +91,7 @@ def curses_main(stdscr):
     plotting_status = '<startup>'    # todo rename these msg?
     archiving_status = '<startup>'
 
+    curses.start_color()
     stdscr.nodelay(True)  # make getch() non-blocking
     stdscr.timeout(2000)
 
