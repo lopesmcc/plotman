@@ -263,7 +263,7 @@ def curses_main(stdscr):
         header_win.addnstr(' ' + plotting_status, linecap)
         header_win.addnstr(' <A>rchival: ', linecap, curses.A_BOLD)
 
-        if configured:
+        if archiving_configured:
             if archiving_active or is_external_archiving_active(cfg):
                 header_win.addnstr('(active)', linecap, curses.color_pair(2))
             else:
