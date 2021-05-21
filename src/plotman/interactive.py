@@ -13,6 +13,16 @@ from threading  import Thread
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -57,16 +67,16 @@ class Log:
 
 def plotting_status_msg(active, status):
     if active:
-        return '(active) ' + status
+        return bcolors.OKGREEN + '(active)' + bcolors.ENDC + ' ' + status
     else:
-        return '(inactive) ' + status
+        return bcolors.FAIL + '(inactive)' + bcolors.ENDC + ' ' + status
 
 def archiving_status_msg(configured, active, status):
     if configured:
         if active:
-            return '(active) ' + status
+            return bcolors.OKGREEN + '(active)' + bcolors.ENDC + ' ' + status
         else:
-            return '(inactive) ' + status
+            return bcolors.FAIL + '(inactive)' + bcolors.ENDC + ' ' + status
     else:
         return '(not configured)'
 
