@@ -253,10 +253,14 @@ def curses_main(stdscr):
         refresh_msg = "now" if do_full_refresh else f"{int(elapsed)}s/{cfg.scheduling.polling_time_s}"
         header_win.addnstr(f" {timestamp} (refresh {refresh_msg})", linecap)
         header_win.addnstr('  |  <P>lotting: ', linecap, curses.A_BOLD)
+        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+
         if plotting_active or is_external_plotting_active(cfg):
-            header_win.addnstr('(active)', linecap, curses.COLOR_GREEN)
+
+            header_win.addnstr('(active)', linecap, curses.color_pair(2))
         else:
-            header_win.addnstr('(inactive)', linecap, curses.COLOR_RED)
+            header_win.addnstr('(inactive)', linecap, curses.color_pair(1))
         header_win.addnstr(' ' + plotting_status, linecap)
         header_win.addnstr(' <A>rchival: ', linecap, curses.A_BOLD)
         a_active = archiving_active or is_external_archiving_active(cfg)
