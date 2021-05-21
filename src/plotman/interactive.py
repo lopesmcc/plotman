@@ -13,16 +13,6 @@ from threading  import Thread
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -67,16 +57,16 @@ class Log:
 
 def plotting_status_msg(active, status):
     if active:
-        return bcolors.OKGREEN + '(active)' + bcolors.ENDC + ' ' + status
+        return '(active) ' + status
     else:
-        return bcolors.FAIL + '(inactive)' + bcolors.ENDC + ' ' + status
+        return '(inactive) ' + status
 
 def archiving_status_msg(configured, active, status):
     if configured:
         if active:
-            return bcolors.OKGREEN + '(active)' + bcolors.ENDC + ' ' + status
+            return '(active) ' + status
         else:
-            return bcolors.FAIL + '(inactive)' + bcolors.ENDC + ' ' + status
+            return '(inactive) ' + status
     else:
         return '(not configured)'
 
@@ -262,12 +252,14 @@ def curses_main(stdscr):
         refresh_msg = "now" if do_full_refresh else f"{int(elapsed)}s/{cfg.scheduling.polling_time_s}"
         header_win.addnstr(f" {timestamp} (refresh {refresh_msg})", linecap)
         header_win.addnstr('  |  <P>lotting: ', linecap, curses.A_BOLD)
-        header_win.addnstr(
-                plotting_status_msg(plotting_active or is_external_plotting_active(cfg), plotting_status), linecap)
+        if plotting_active or is_external_plotting_active(cfg):
+            header_win.addnstr('(active)', linecap, curses.COLOR_GREEN)
+        else:
+            header_win.addnstr('(inactive)', linecap, curses.COLOR_RED)
+        header_win.addnstr(' ' + plotting_status, linecap)
         header_win.addnstr(' <A>rchival: ', linecap, curses.A_BOLD)
-        header_win.addnstr(
-                archiving_status_msg(archiving_configured,
-                    archiving_active or is_external_archiving_active(cfg), archiving_status), linecap)
+        a_active = archiving_active or is_external_archiving_active(cfg)
+        header_win.addnstr(archiving_status_msg(archiving_configured, a_active, archiving_status), linecap)
 
         # Oneliner progress display
         header_win.addnstr(1, 0, 'Jobs (%d): ' % len(jobs), linecap)
