@@ -45,13 +45,6 @@ def get_validated_configs(config_text, config_path):
 
     return loaded
 
-def get_dst_directories(dir_cfg):
-    """Returns either (True, <Directories.dst>) or (False, <Directories.tmp>). If Directories.dst is None,
-    Use Directories.tmp as dst directory."""
-    if dir_cfg.dst is None:
-        return (False, dir_cfg.tmp)
-    else:
-        return (True, dir_cfg.dst)
 
 # Data models used to deserializing/formatting plotman.yaml files.
 
@@ -83,6 +76,19 @@ class Directories:
     tmp_overrides: Optional[Dict[str, TmpOverrides]] = None
     archive: Optional[Archive] = None
 
+    def dst_is_tmp(self):
+        return self.dst is None
+
+    def get_dst_directories(self):
+        """Returns either <Directories.dst> or <Directories.tmp>. If
+        Directories.dst is None, Use Directories.tmp as dst directory.
+        """
+        if self.dst_is_tmp():
+            return self.tmp
+
+        return self.dst
+
+
 @attr.frozen
 class Scheduling:
     global_max_jobs: int
@@ -103,6 +109,7 @@ class Plotting:
     job_buffer: int
     farmer_pk: Optional[str] = None
     pool_pk: Optional[str] = None
+    x: bool = False
 
 @attr.frozen
 class UserInterface:

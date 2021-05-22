@@ -97,10 +97,12 @@ def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg, dryrun = False):
             tmpdir = max(rankable, key=operator.itemgetter(1))[0]
 
             # Select the dst dir least recently selected
-            (is_dst, dst_dir) = configuration.get_dst_directories(dir_cfg)
-            if is_dst:
+            dst_dir = dir_cfg.get_dst_directories()
+            if dir_cfg.dst_is_tmp():
+                dstdir = tmpdir
+            else:
                 dir2ph = { d:ph for (d, ph) in dstdirs_to_youngest_phase(jobs).items()
-                          if d in dst_dir and ph is not None}
+                        if d in dst_dir and ph is not None}
                 unused_dirs = [d for d in dst_dir if d not in dir2ph.keys()]
                 dstdir = ''
                 if unused_dirs:
@@ -108,8 +110,6 @@ def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg, dryrun = False):
                 else:
                     # Select the dst dir least recently selected
                     dstdir = max(dir2ph, key=dir2ph.get)
-            else:
-                dstdir = tmpdir
 
             logfile = os.path.join(
                 dir_cfg.log, pendulum.now().isoformat(timespec='microseconds').replace(':', '_') + '.log'
@@ -133,6 +133,8 @@ def maybe_start_new_plot(dir_cfg, sched_cfg, plotting_cfg, dryrun = False):
             if dir_cfg.tmp2 is not None:
                 plot_args.append('-2')
                 plot_args.append(dir_cfg.tmp2)
+            if plotting_cfg.x:
+                plot_args.append('-x')
 
             if dryrun:
                 return (True, 'Should be starting plot job: %s ; logging to %s' % (' '.join(plot_args), logfile))

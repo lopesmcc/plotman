@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import math
 import os
+import posixpath
 import random
 import re
 import subprocess
@@ -21,11 +22,11 @@ def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
 
     log_message = None
     archiving_status = None
-    
+
     # Look for running archive jobs.  Be robust to finding more than one
     # even though the scheduler should only run one at a time.
     arch_jobs = get_running_archive_jobs(dir_cfg.archive)
-    
+
     if not arch_jobs:
         (should_start, status_or_cmd) = archive(dir_cfg, all_jobs)
         if not should_start:
@@ -52,7 +53,7 @@ def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
         archiving_status = 'pid: ' + ', '.join(map(str, arch_jobs))
 
     return archiving_status, log_message
-            
+
 def compute_priority(phase, gb_free, n_plots):
     # All these values are designed around dst buffer dirs of about
     # ~2TB size and containing k32 plots.  TODO: Generalize, and
@@ -72,7 +73,7 @@ def compute_priority(phase, gb_free, n_plots):
             priority -= 16
         elif (phase >= job.Phase(3, 7)):
             priority -= 32
-        
+
     # If a drive is getting full, we should prioritize it
     if (gb_free < 1000):
         priority += 1 + int((1000 - gb_free) / 100)
@@ -90,9 +91,9 @@ def get_archdir_freebytes(arch_cfg):
     just_df_cmd = 'df -aBK'
     if arch_cfg.mode == 'remote':
         df_cmd = ('ssh %s@%s %s | grep " %s/"' %
-            (arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, just_df_cmd, arch_cfg.rsyncd_path) )
+            (arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, just_df_cmd, posixpath.normpath(arch_cfg.rsyncd_path)) )
     elif arch_cfg.mode == 'local':
-        df_cmd = '%s | grep " %s/"' % (just_df_cmd, arch_cfg.rsyncd_path)
+        df_cmd = '%s | grep " %s/"' % (just_df_cmd, posixpath.normpath(arch_cfg.rsyncd_path))
     else:
         raise KeyError(f'Archive mode must be "remote" or "local" ({arch_cfg.mode!r} given). Please inspect plotman.yaml.')
     with subprocess.Popen(df_cmd, shell=True, stdout=subprocess.PIPE) as proc:
@@ -137,7 +138,7 @@ def get_running_archive_jobs(arch_cfg):
 
 def archive(dir_cfg, all_jobs):
     '''Configure one archive job.  Needs to know all jobs so it can avoid IO
-    contention on the plotting dstdir drives.  Returns either (False, <reason>) 
+    contention on the plotting dstdir drives.  Returns either (False, <reason>)
     if we should not execute an archive job or (True, <cmd>) with the archive
     command if we should.'''
     if dir_cfg.archive is None:
@@ -146,13 +147,13 @@ def archive(dir_cfg, all_jobs):
     dir2ph = manager.dstdirs_to_furthest_phase(all_jobs)
     best_priority = -100000000
     chosen_plot = None
-    (is_dst, dst_dir) = configuration.get_dst_directories(dir_cfg)
+    dst_dir = dir_cfg.get_dst_directories()
     for d in dst_dir:
         ph = dir2ph.get(d, job.Phase(0, 0))
         dir_plots = plot_util.list_k32_plots(d)
         gb_free = plot_util.df_b(d) / plot_util.GB
         n_plots = len(dir_plots)
-        priority = compute_priority(ph, gb_free, n_plots) 
+        priority = compute_priority(ph, gb_free, n_plots)
         if priority >= best_priority and dir_plots:
             best_priority = priority
             chosen_plot = dir_plots[0]
@@ -169,7 +170,7 @@ def archive(dir_cfg, all_jobs):
     archdir_freebytes = get_archdir_freebytes(dir_cfg.archive)
     if not archdir_freebytes:
         return(False, 'No free archive dirs found.')
-    
+
     archdir = ''
     available = [(d, space) for (d, space) in archdir_freebytes.items() if plot_util.enough_space_for_k32(space)]
     if len(available) > 0:
@@ -178,12 +179,12 @@ def archive(dir_cfg, all_jobs):
 
     if not archdir:
         return(False, 'No archive directories found with enough free space')
-    
+
     msg = 'Found %s with ~%d GB free' % (archdir, freespace / plot_util.GB)
 
     bwlimit = dir_cfg.archive.rsyncd_bwlimit
     throttle_arg = ('--bwlimit=%d' % bwlimit) if bwlimit else ''
-    cmd = ('rsync %s --no-compress --remove-source-files -P %s %s' %
+    cmd = ('rsync %s --compress-level=0 --remove-source-files -P %s %s' %
             (throttle_arg, chosen_plot, rsync_dest(dir_cfg.archive, archdir)))
 
     return (True, cmd)
