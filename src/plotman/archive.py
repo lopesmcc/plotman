@@ -19,16 +19,14 @@ from plotman import job, manager, configuration, plot_util
 def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
     '''Spawns a new archive process using the command created 
     in the archive() function. Returns archiving status and a log message to print.'''
-
     log_message = None
     archiving_status = None
 
     # Look for running archive jobs.  Be robust to finding more than one
     # even though the scheduler should only run one at a time.
-    arch_jobs = get_running_archive_jobs(dir_cfg.archive)
-
-    if not arch_jobs:
-        (should_start, status_or_cmd) = archive(dir_cfg, all_jobs)
+    arch_jobs = get_running_archive_jobs(dir_cfg)
+    if len(arch_jobs) < dir_cfg.archive.max_jobs:
+        (should_start, status_or_cmd) = archive(dir_cfg, all_jobs, arch_jobs)
         if not should_start:
             archiving_status = status_or_cmd
         else:
@@ -121,9 +119,11 @@ def rsync_dest(arch_cfg, arch_dir):
     return rsync_url
 
 # TODO: maybe consolidate with similar code in job.py?
-def get_running_archive_jobs(arch_cfg):
+def get_running_archive_jobs(dir_cfg):
     '''Look for running rsync jobs that seem to match the pattern we use for archiving
        them.  Return a list of PIDs of matching jobs.'''
+
+    arch_cfg = dir_cfg.archive
     jobs = set()
     dest = rsync_dest(arch_cfg, '/')
     for proc in psutil.process_iter(['pid', 'name']):
@@ -131,12 +131,19 @@ def get_running_archive_jobs(arch_cfg):
             if proc.name() == 'rsync':
                 if proc.parent() is None or proc.name() != proc.parent().name():
                     args = proc.cmdline()
+                    is_related = False
+                    plot = None
                     for arg in args:
                         if arg.startswith(dest):
-                            jobs.add(proc.pid)
+                            is_related = True
+                        for dst_dir in dir_cfg.get_dst_directories():
+                            if arg.startswith(dst_dir):
+                                plot = arg
+                    if is_related and plot:
+                        jobs.add((proc.pid, plot))
     return jobs
 
-def archive(dir_cfg, all_jobs):
+def archive(dir_cfg, all_jobs, arch_jobs):
     '''Configure one archive job.  Needs to know all jobs so it can avoid IO
     contention on the plotting dstdir drives.  Returns either (False, <reason>)
     if we should not execute an archive job or (True, <cmd>) with the archive
@@ -144,13 +151,14 @@ def archive(dir_cfg, all_jobs):
     if dir_cfg.archive is None:
         return (False, "No 'archive' settings declared in plotman.yaml")
 
+    plots_being_archived = [job[1] for job in arch_jobs]
     dir2ph = manager.dstdirs_to_furthest_phase(all_jobs)
     best_priority = -100000000
     chosen_plot = None
     dst_dir = dir_cfg.get_dst_directories()
     for d in dst_dir:
         ph = dir2ph.get(d, job.Phase(0, 0))
-        dir_plots = plot_util.list_k32_plots(d)
+        dir_plots = [dir for dir in plot_util.list_k32_plots(d) if dir not in plots_being_archived]
         gb_free = plot_util.df_b(d) / plot_util.GB
         n_plots = len(dir_plots)
         priority = compute_priority(ph, gb_free, n_plots)
@@ -174,13 +182,11 @@ def archive(dir_cfg, all_jobs):
     archdir = ''
     available = [(d, space) for (d, space) in archdir_freebytes.items() if plot_util.enough_space_for_k32(space)]
     if len(available) > 0:
-        index = min(dir_cfg.archive.index, len(available) - 1)
+        index = min(dir_cfg.archive.index + len(plots_being_archived), len(available) - 1)
         (archdir, freespace) = sorted(available)[index]
 
     if not archdir:
         return(False, 'No archive directories found with enough free space')
-
-    msg = 'Found %s with ~%d GB free' % (archdir, freespace / plot_util.GB)
 
     bwlimit = dir_cfg.archive.rsyncd_bwlimit
     throttle_arg = ('--bwlimit=%d' % bwlimit) if bwlimit else ''

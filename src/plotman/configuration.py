@@ -56,6 +56,7 @@ class Archive:
     rsyncd_host: str
     rsyncd_user: str
     index: int = 0  # If not explicit, "index" will default to 0
+    max_jobs: int = 1
     mode: str = desert.field(
         default='remote',
         marshmallow_field=marshmallow.fields.String(

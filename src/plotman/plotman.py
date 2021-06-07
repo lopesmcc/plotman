@@ -147,9 +147,9 @@ def main():
 
             # TODO: report this via a channel that can be polled on demand, so we don't spam the console
             if started:
-                print(msg, flush=True)
+                print(msg)
             else:
-                print('...sleeping %d s: %s' % (cfg.scheduling.polling_time_s, msg), flush=True)
+                print('...sleeping %d s: %s' % (cfg.scheduling.polling_time_s, msg))
 
             time.sleep(cfg.scheduling.polling_time_s)
 
@@ -182,7 +182,7 @@ def main():
 
         # Start running archival
         elif args.cmd == 'archive':
-            print('...starting archive loop', flush=True)
+            print('...starting archive loop')
             firstit = True
             while True:
                 if not firstit:
@@ -193,7 +193,7 @@ def main():
 
                 archiving_status, log_message = archive.spawn_archive_process(cfg.directories, jobs)
                 if log_message:
-                    print(log_message, flush=True)
+                    print(log_message)
 
 
         # Debugging: show the destination drive usage schedule
