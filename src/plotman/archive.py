@@ -48,7 +48,7 @@ def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
             arch_jobs.add('<pending>')
 
     if archiving_status is None:
-        archiving_status = 'pid: ' + ', '.join(map(str, arch_jobs))
+        archiving_status = 'pid: ' + ', '.join(map(str, [x[0] for x in arch_jobs]))
 
     return archiving_status, log_message
 
@@ -133,14 +133,16 @@ def get_running_archive_jobs(dir_cfg):
                     args = proc.cmdline()
                     is_related = False
                     plot = None
+                    proc_dest = None
                     for arg in args:
                         if arg.startswith(dest):
+                            proc_dest = arg
                             is_related = True
                         for dst_dir in dir_cfg.get_dst_directories():
                             if arg.startswith(dst_dir):
                                 plot = arg
-                    if is_related and plot:
-                        jobs.add((proc.pid, plot))
+                    if is_related and plot and proc_dest:
+                        jobs.add((proc.pid, plot, proc_dest))
     return jobs
 
 def archive(dir_cfg, all_jobs, arch_jobs):
@@ -152,6 +154,7 @@ def archive(dir_cfg, all_jobs, arch_jobs):
         return (False, "No 'archive' settings declared in plotman.yaml")
 
     plots_being_archived = [job[1] for job in arch_jobs]
+    archdirs_being_used = [job[2] for job in arch_jobs]
     dir2ph = manager.dstdirs_to_furthest_phase(all_jobs)
     best_priority = -100000000
     chosen_plot = None
@@ -182,8 +185,12 @@ def archive(dir_cfg, all_jobs, arch_jobs):
     archdir = ''
     available = [(d, space) for (d, space) in archdir_freebytes.items() if plot_util.enough_space_for_k32(space)]
     if len(available) > 0:
-        index = min(dir_cfg.archive.index + len(plots_being_archived), len(available) - 1)
+        min_index = min(dir_cfg.archive.index, len(available) - 1)
+        index = min(min_index + len(plots_being_archived), len(available) - 1)
         (archdir, freespace) = sorted(available)[index]
+        while archdir and archdir in archdirs_being_used and index > min_index:
+            index -= 1
+            (archdir, freespace) = sorted(available)[index]
 
     if not archdir:
         return(False, 'No archive directories found with enough free space')
