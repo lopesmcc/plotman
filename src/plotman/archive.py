@@ -170,7 +170,10 @@ def archive(dir_cfg, all_jobs, arch_jobs):
             chosen_plot = dir_plots[0]
 
     if not chosen_plot:
-        return (False, 'No plots found')
+        if plots_being_archived:
+            return False, None
+        else:
+            return False, 'No plots found'
 
     # TODO: sanity check that archive machine is available
     # TODO: filter drives mounted RO
