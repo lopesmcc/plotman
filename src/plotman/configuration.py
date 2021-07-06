@@ -280,21 +280,16 @@ class Logging:
 class Directories:
     tmp: List[str]
     dst: Optional[List[str]] = None
-    tmp2: Optional[str] = None
+    tmp2: Optional[List[str]] = None
 
     def dst_is_tmp(self) -> bool:
-        return self.dst is None and self.tmp2 is None
-
-    def dst_is_tmp2(self) -> bool:
-        return self.dst is None and self.tmp2 is not None
+        return self.dst is None
 
     def get_dst_directories(self) -> List[str]:
         """Returns either <Directories.dst> or <Directories.tmp>. If
         Directories.dst is None, Use Directories.tmp as dst directory.
         """
-        if self.dst_is_tmp2():
-            return [self.tmp2]  # type: ignore[list-item]
-        elif self.dst_is_tmp():
+        if self.dst_is_tmp():
             return self.tmp
 
         return self.dst  # type: ignore[return-value]

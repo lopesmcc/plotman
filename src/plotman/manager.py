@@ -113,13 +113,17 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
         else:
             # Plot to oldest tmpdir.
             tmpdir = max(rankable, key=operator.itemgetter(1))[0]
+            tmpdir2 = None
+            if dir_cfg.tmp2 is not None:
+                tmpdir_index = dir_cfg.tmp.index(tmpdir)
+                tmpdir2 = dir_cfg.tmp2[tmpdir_index % len(dir_cfg.tmp2)]
 
             dst_dirs = dir_cfg.get_dst_directories()
 
             dstdir: str
-            if dir_cfg.dst_is_tmp2():
-                dstdir = dir_cfg.tmp2  # type: ignore[assignment]
-            elif tmpdir in dst_dirs:
+            # if dir_cfg.dst_is_tmp2():
+            #     dstdir = dir_cfg.tmp2  # type: ignore[assignment]
+            if tmpdir in dst_dirs:
                 dstdir = tmpdir
             elif dir_cfg.dst_is_tmp():
                 dstdir = tmpdir
@@ -150,9 +154,9 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                     '-u', str(plotting_cfg.madmax.n_buckets),
                     '-t', tmpdir if tmpdir.endswith('/') else (tmpdir + '/'),
                     '-d', dstdir if dstdir.endswith('/') else (dstdir + '/') ]
-                if dir_cfg.tmp2 is not None:
+                if tmpdir2 is not None:
                     plot_args.append('-2')
-                    plot_args.append(dir_cfg.tmp2 if dir_cfg.tmp2.endswith('/') else (dir_cfg.tmp2 + '/'))
+                    plot_args.append(tmpdir2 if tmpdir2.endswith('/') else (tmpdir2 + '/'))
                 if plotting_cfg.madmax.cpu_affinity_enabled:
                     threads = plotting_cfg.madmax.n_threads
                     cpus_being_used = sum([job.get_cpu_affinity() for job in jobs], [])
@@ -176,9 +180,9 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                     plot_args.append('-e')
                 if plotting_cfg.chia.x:
                     plot_args.append('-x')
-                if dir_cfg.tmp2 is not None:
+                if tmpdir2 is not None:
                     plot_args.append('-2')
-                    plot_args.append(dir_cfg.tmp2)
+                    plot_args.append(tmpdir2)
             if plotting_cfg.farmer_pk is not None:
                 plot_args.append('-f')
                 plot_args.append(plotting_cfg.farmer_pk)
