@@ -7,6 +7,7 @@ import subprocess
 import shlex
 import typing
 import sys
+from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
 
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
