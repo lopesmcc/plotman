@@ -90,7 +90,7 @@ def phases_permit_new_job(phases: typing.List[job.Phase], d: str, sched_cfg: plo
 
     return True
 
-def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: plotman.configuration.Scheduling, plotting_cfg: plotman.configuration.Plotting, log_cfg: plotman.configuration.Logging) -> typing.Tuple[bool, str]:
+def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: plotman.configuration.Scheduling, plotting_cfg: plotman.configuration.Plotting, log_cfg: plotman.configuration.Logging, dryrun: bool = False) -> typing.Tuple[bool, str]:
     jobs = job.Job.get_running_jobs(log_cfg.plots)
 
     wait_reason = None  # If we don't start a job this iteration, this says why.
@@ -182,7 +182,8 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                 plot_args.append('-c')
                 plot_args.append(plotting_cfg.pool_contract_address)
 
-
+            if dryrun:
+                return True, 'Should be starting plot job: %s ; logging to %s' % (' '.join(plot_args), log_file_path)
 
             logmsg = ('Starting plot job: %s ; logging to %s' % (' '.join(plot_args), log_file_path))
 
