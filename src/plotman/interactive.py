@@ -5,7 +5,7 @@ import math
 import os
 import subprocess
 import shlex
-import time
+import typing
 import sys
 
 from plotman import archive, configuration, manager, reporting
