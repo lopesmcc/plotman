@@ -235,7 +235,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         logscreen_pos = dirs_pos + dirs_h
 
         linecap = n_cols - 1
-        if cfg.user_interface.show_logs:
+        if cfg.commands.interactive.show_logs:
             logs_h = n_rows - (header_h + jobs_h + dirs_h)
         else:
             logs_h = 0
@@ -244,7 +244,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
 
         try:
             header_win = curses.newwin(header_h, n_cols, header_pos, 0)
-            if cfg.user_interface.show_logs:
+            if cfg.commands.interactive.show_logs:
                 log_win = curses.newwin(logs_h, n_cols, logscreen_pos, 0)
             jobs_win = curses.newwin(jobs_h, n_cols, jobs_pos, 0)
             dirs_win = curses.newwin(dirs_h, n_cols, dirs_pos, 0)
@@ -326,7 +326,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         archwin.addstr(0, 0, 'Archive dirs free space', curses.A_REVERSE)
         archwin.addstr(1, 0, arch_report)
 
-        if cfg.user_interface.show_logs:
+        if cfg.commands.interactive.show_logs:
             # Log.  Could use a pad here instead of managing scrolling ourselves, but
             # this seems easier.
             log_win.addnstr(0, 0, ('Log: %d (<up>/<down>/<end> to scroll)\n' % log.get_cur_pos() ),
@@ -340,7 +340,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         tmpwin.noutrefresh()
         dstwin.noutrefresh()
         archwin.noutrefresh()
-        if cfg.user_interface.show_logs:
+        if cfg.commands.interactive.show_logs:
             log_win.noutrefresh()
         curses.doupdate()
 
@@ -377,9 +377,9 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
 
 
 def should_use_external_plotting(cfg):
-    has_start_plotter_cmd = cfg.user_interface.start_plotter_cmd is not None
-    has_stop_plotter_cmd = cfg.user_interface.stop_plotter_cmd is not None
-    has_is_plotter_active_cmd = cfg.user_interface.is_plotter_active_cmd is not None
+    has_start_plotter_cmd = cfg.commands.interactive.start_plotter_cmd is not None
+    has_stop_plotter_cmd = cfg.commands.interactive.stop_plotter_cmd is not None
+    has_is_plotter_active_cmd = cfg.commands.interactive.is_plotter_active_cmd is not None
     if has_start_plotter_cmd and has_stop_plotter_cmd and has_is_plotter_active_cmd:
         return True
     if has_start_plotter_cmd or has_stop_plotter_cmd or has_is_plotter_active_cmd:
@@ -391,7 +391,7 @@ def should_use_external_plotting(cfg):
 def is_external_plotting_active(cfg):
     if not should_use_external_plotting(cfg):
         return False
-    cmd = shlex.split(cfg.user_interface.is_plotter_active_cmd)
+    cmd = shlex.split(cfg.commands.interactive.is_plotter_active_cmd)
     try:
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
         return True
@@ -401,17 +401,17 @@ def is_external_plotting_active(cfg):
 
 def toggle_external_plotter(cfg):
     if is_external_plotting_active(cfg):
-        cmd = shlex.split(cfg.user_interface.stop_plotter_cmd)
+        cmd = shlex.split(cfg.commands.interactive.stop_plotter_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
     else:
-        cmd = shlex.split(cfg.user_interface.start_plotter_cmd)
+        cmd = shlex.split(cfg.commands.interactive.start_plotter_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
 
 
 def should_use_external_archiver(cfg):
-    has_start_archiver_cmd = cfg.user_interface.start_archiver_cmd is not None
-    has_stop_archiver_cmd = cfg.user_interface.stop_archiver_cmd is not None
-    has_is_archiver_active_cmd = cfg.user_interface.is_archiver_active_cmd is not None
+    has_start_archiver_cmd = cfg.commands.interactive.start_archiver_cmd is not None
+    has_stop_archiver_cmd = cfg.commands.interactive.stop_archiver_cmd is not None
+    has_is_archiver_active_cmd = cfg.commands.interactive.is_archiver_active_cmd is not None
     if has_start_archiver_cmd and has_stop_archiver_cmd and has_is_archiver_active_cmd:
         return True
     if has_start_archiver_cmd or has_stop_archiver_cmd or has_is_archiver_active_cmd:
@@ -423,7 +423,7 @@ def should_use_external_archiver(cfg):
 def is_external_archiving_active(cfg):
     if not should_use_external_archiver(cfg):
         return False
-    cmd = shlex.split(cfg.user_interface.is_archiver_active_cmd)
+    cmd = shlex.split(cfg.commands.interactive.is_archiver_active_cmd)
     try:
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
         return True
@@ -433,10 +433,10 @@ def is_external_archiving_active(cfg):
 
 def toggle_external_archiver(cfg):
     if is_external_archiving_active(cfg):
-        cmd = shlex.split(cfg.user_interface.stop_archiver_cmd)
+        cmd = shlex.split(cfg.commands.interactive.stop_archiver_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
     else:
-        cmd = shlex.split(cfg.user_interface.start_archiver_cmd)
+        cmd = shlex.split(cfg.commands.interactive.start_archiver_cmd)
         check_call(cmd, stdout=DEVNULL, stderr=STDOUT)
 
 def run_interactive(cfg: configuration.PlotmanConfig, autostart_plotting: typing.Optional[bool] = None, autostart_archiving: typing.Optional[bool] = None) -> None:
