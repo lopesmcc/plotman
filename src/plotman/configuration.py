@@ -350,6 +350,13 @@ class UserInterface:
 class Interactive:
     autostart_plotting: bool = True
     autostart_archiving: bool = True
+    show_logs: bool = True
+    start_plotter_cmd: Optional[str] = None
+    stop_plotter_cmd: Optional[str] = None
+    is_plotter_active_cmd: Optional[str] = None
+    start_archiver_cmd: Optional[str] = None
+    stop_archiver_cmd: Optional[str] = None
+    is_archiver_active_cmd: Optional[str] = None
 
 @attr.frozen
 class Commands:

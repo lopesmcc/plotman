@@ -24,7 +24,7 @@ _WINDOWS = sys.platform == 'win32'
 
 # TODO : write-protect and delete-protect archived plots
 
-def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, log_cfg: configuration.Logging, all_jobs: typing.List[job.Job]) -> typing.Tuple[typing.Union[bool, str, typing.Dict[str, object]], typing.List[str]]:
+def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, log_cfg: configuration.Logging, all_jobs: typing.List[job.Job], dryrun: bool = False) -> typing.Tuple[typing.Union[bool, str, typing.Dict[str, object]], typing.List[str]]:
     '''Spawns a new archive process using the command created
     in the archive() function. Returns archiving status and a log message to print.'''
 
@@ -41,46 +41,47 @@ def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configur
         if not should_start:
             archiving_status = status_or_cmd
         else:
-            args: typing.Dict[str, object] = status_or_cmd  # type: ignore[assignment]
+            if not dryrun:
+                args: typing.Dict[str, object] = status_or_cmd  # type: ignore[assignment]
 
-            log_file_path = log_cfg.create_transfer_log_path(time=pendulum.now())
+                log_file_path = log_cfg.create_transfer_log_path(time=pendulum.now())
 
-            log_messages.append(f'Starting archive: {args["args"]} ; logging to {log_file_path}')
-            # TODO: CAMPid 09840103109429840981397487498131
-            try:
-                open_log_file = open(log_file_path, 'x')
-            except FileExistsError:
-                log_messages.append(
-                    f'Archiving log file already exists, skipping attempt to start a'
-                    f' new archive transfer: {log_file_path!r}'
-                )
-                return (False, log_messages)
-            except FileNotFoundError as e:
-                message = (
-                    f'Unable to open log file.  Verify that the directory exists'
-                    f' and has proper write permissions: {log_file_path!r}'
-                )
-                raise Exception(message) from e
+                log_messages.append(f'Starting archive: {args["args"]} ; logging to {log_file_path}')
+                # TODO: CAMPid 09840103109429840981397487498131
+                try:
+                    open_log_file = open(log_file_path, 'x')
+                except FileExistsError:
+                    log_messages.append(
+                        f'Archiving log file already exists, skipping attempt to start a'
+                        f' new archive transfer: {log_file_path!r}'
+                    )
+                    return (False, log_messages)
+                except FileNotFoundError as e:
+                    message = (
+                        f'Unable to open log file.  Verify that the directory exists'
+                        f' and has proper write permissions: {log_file_path!r}'
+                    )
+                    raise Exception(message) from e
 
-            # Preferably, do not add any code between the try block above
-            # and the with block below.  IOW, this space intentionally left
-            # blank...  As is, this provides a good chance that our handle
-            # of the log file will get closed explicitly while still
-            # allowing handling of just the log file opening error.
+                # Preferably, do not add any code between the try block above
+                # and the with block below.  IOW, this space intentionally left
+                # blank...  As is, this provides a good chance that our handle
+                # of the log file will get closed explicitly while still
+                # allowing handling of just the log file opening error.
 
-            if sys.platform == 'win32':
-                creationflags = subprocess.CREATE_NO_WINDOW
-            else:
-                creationflags = 0
+                if sys.platform == 'win32':
+                    creationflags = subprocess.CREATE_NO_WINDOW
+                else:
+                    creationflags = 0
 
-            with open_log_file:
-                # start_new_sessions to make the job independent of this controlling tty.
-                p = subprocess.Popen(**args,  # type: ignore[call-overload]
-                    shell=True,
-                    stdout=open_log_file,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                    creationflags=creationflags)
+                with open_log_file:
+                    # start_new_sessions to make the job independent of this controlling tty.
+                    p = subprocess.Popen(**args,  # type: ignore[call-overload]
+                        shell=True,
+                        stdout=open_log_file,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True,
+                        creationflags=creationflags)
             # At least for now it seems that even if we get a new running
             # archive jobs list it doesn't contain the new rsync process.
             # My guess is that this is because the bash in the middle due to
