@@ -280,7 +280,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
                 header_win.addnstr('(inactive)', linecap, curses.color_pair(1) | curses.A_BOLD)
             header_win.addnstr(' ' + archiving_status, linecap)
         else:
-            '(not configured)'
+            header_win.addnstr(' (not configured)', linecap)
 
         # Oneliner progress display
         header_win.addnstr(1, 0, 'Jobs (%d): ' % len(jobs), linecap)
