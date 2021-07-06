@@ -153,6 +153,13 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                 if dir_cfg.tmp2 is not None:
                     plot_args.append('-2')
                     plot_args.append(dir_cfg.tmp2 if dir_cfg.tmp2.endswith('/') else (dir_cfg.tmp2 + '/'))
+                if plotting_cfg.madmax.cpu_affinity_enabled:
+                    threads = plotting_cfg.madmax.n_threads
+                    cpus_being_used = sum([job.get_cpu_affinity() for job in jobs], [])
+                    free_cpus = [cpu for cpu in range(os.cpu_count()) if cpu not in cpus_being_used]
+                    if len(free_cpus) >= threads:
+                        cpus = ','.join(free_cpus[0:threads])
+                        plot_args[0:0]=['taskset', '-c', cpus]
             else:
                 if plotting_cfg.chia is None:
                     raise Exception(

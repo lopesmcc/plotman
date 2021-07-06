@@ -323,6 +323,7 @@ class ChiaPlotterOptions:
 class MadmaxPlotterOptions:
     n_threads: int = 4
     n_buckets: int = 256
+    cpu_affinity_enabled: bool = False
 
 @attr.frozen
 class Plotting:

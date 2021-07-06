@@ -558,6 +558,9 @@ class Job:
 
         return int(iowait)
 
+    def get_cpu_affinity(self) -> typing.List[int]:
+        return self.proc.cpu_affinity()
+
     def suspend(self, reason: str = '') -> None:
         self.proc.suspend()
         self.status_note = reason
