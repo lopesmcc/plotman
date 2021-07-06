@@ -134,7 +134,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
 
             if plotting_active or is_external_plotting_active(cfg):
                 (started, msg) = manager.maybe_start_new_plot(
-                    cfg.directories, cfg.scheduling, cfg.plotting, should_use_external_plotting(cfg)
+                    cfg.directories, cfg.scheduling, cfg.plotting, cfg.logging, should_use_external_plotting(cfg)
                 )
                 if (started):
                     if not should_use_external_plotting(cfg):
