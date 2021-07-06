@@ -279,8 +279,8 @@ class Logging:
 @attr.frozen
 class Directories:
     tmp: List[str]
-    dst: Optional[List[str]] = None
     tmp2: Optional[List[str]] = None
+    dst: Optional[List[str]] = None
 
     def dst_is_tmp(self) -> bool:
         return self.dst is None
