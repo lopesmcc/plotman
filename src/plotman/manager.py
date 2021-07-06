@@ -158,7 +158,7 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                     cpus_being_used = sum([job.get_cpu_affinity() for job in jobs], [])
                     free_cpus = [cpu for cpu in range(os.cpu_count()) if cpu not in cpus_being_used]
                     if len(free_cpus) >= threads:
-                        cpus = ','.join(free_cpus[0:threads])
+                        cpus = ','.join([str(int) for int in free_cpus[0:threads]])
                         plot_args[0:0]=['taskset', '-c', cpus]
             else:
                 if plotting_cfg.chia is None:
