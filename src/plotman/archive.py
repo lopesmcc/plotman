@@ -29,6 +29,7 @@ def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configur
     in the archive() function. Returns archiving status and a log message to print.'''
 
     log_messages = []
+
     archiving_status = None
 
     # Look for running archive jobs.  Be robust to finding more than one
@@ -88,10 +89,10 @@ def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configur
             # shell=True is still starting up and really hasn't launched the
             # new rsync process yet.  So, just put a placeholder here.  It
             # will get filled on the next cycle.
-            arch_jobs.append('<pending>')
+            arch_jobs.add('<pending>')
 
     if archiving_status is None:
-        archiving_status = 'pid: ' + ', '.join(map(str, arch_jobs))
+        archiving_status = 'pid: ' + ', '.join(map(str, [x[0] for x in arch_jobs]))
 
     return archiving_status, log_messages
 
@@ -205,6 +206,8 @@ def archive(dir_cfg: configuration.Directories, arch_cfg: configuration.Archivin
     if arch_cfg is None:
         return (False, "No 'archive' settings declared in plotman.yaml", log_messages)
 
+    plots_being_archived = [job[1] for job in arch_jobs]
+    archdirs_being_used = [job[2] for job in arch_jobs]
     dir2ph = manager.dstdirs_to_furthest_phase(all_jobs)
     best_priority = -100000000
     chosen_plot = None
@@ -243,6 +246,9 @@ def archive(dir_cfg: configuration.Directories, arch_cfg: configuration.Archivin
     if len(available) > 0:
         index = min(arch_cfg.index, len(available) - 1)
         (archdir, freespace) = sorted(available)[index]
+        while archdir and archdir in archdirs_being_used and index > min_index:
+            index -= 1
+            (archdir, freespace) = sorted(available)[index]
 
     if not archdir:
         return(False, 'No archive directories found with enough free space', log_messages)
