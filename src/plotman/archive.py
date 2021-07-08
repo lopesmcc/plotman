@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import logging
 import math
 import os
 import posixpath
@@ -7,38 +8,81 @@ import random
 import re
 import subprocess
 import sys
+import typing
 from datetime import datetime
 
+import pendulum
 import psutil
 import texttable as tt
 
-from plotman import job, manager, configuration, plot_util
+from plotman import configuration, job, manager, plot_util
+
+
+logger = logging.getLogger(__name__)
+
+_WINDOWS = sys.platform == 'win32'
 
 # TODO : write-protect and delete-protect archived plots
 
-def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
-    '''Spawns a new archive process using the command created 
+def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, log_cfg: configuration.Logging, all_jobs: typing.List[job.Job], dryrun: bool = False) -> typing.Tuple[typing.Union[bool, str, typing.Dict[str, object]], typing.List[str]]:
+    '''Spawns a new archive process using the command created
     in the archive() function. Returns archiving status and a log message to print.'''
-    log_message = None
+
+    log_messages = []
+
     archiving_status = None
 
     # Look for running archive jobs.  Be robust to finding more than one
     # even though the scheduler should only run one at a time.
-    arch_jobs = get_running_archive_jobs(dir_cfg)
-    if len(arch_jobs) < dir_cfg.archive.max_jobs:
-        (should_start, status_or_cmd) = archive(dir_cfg, all_jobs, arch_jobs)
+    arch_jobs: typing.List[typing.Union[int, str]] = [*get_running_archive_jobs(arch_cfg)]
+
+    if not arch_jobs:
+        (should_start, status_or_cmd, archive_log_messages) = archive(dir_cfg, arch_cfg, all_jobs)
+        log_messages.extend(archive_log_messages)
         if not should_start:
             archiving_status = status_or_cmd
         else:
             if not dryrun:
-                cmd = status_or_cmd
-                # TODO: do something useful with output instead of DEVNULL
-                p = subprocess.Popen(cmd,
+                args: typing.Dict[str, object] = status_or_cmd  # type: ignore[assignment]
+
+                log_file_path = log_cfg.create_transfer_log_path(time=pendulum.now())
+
+                log_messages.append(f'Starting archive: {args["args"]} ; logging to {log_file_path}')
+                # TODO: CAMPid 09840103109429840981397487498131
+                try:
+                    open_log_file = open(log_file_path, 'x')
+                except FileExistsError:
+                    log_messages.append(
+                        f'Archiving log file already exists, skipping attempt to start a'
+                        f' new archive transfer: {log_file_path!r}'
+                    )
+                    return (False, log_messages)
+                except FileNotFoundError as e:
+                    message = (
+                        f'Unable to open log file.  Verify that the directory exists'
+                        f' and has proper write permissions: {log_file_path!r}'
+                    )
+                    raise Exception(message) from e
+
+                # Preferably, do not add any code between the try block above
+                # and the with block below.  IOW, this space intentionally left
+                # blank...  As is, this provides a good chance that our handle
+                # of the log file will get closed explicitly while still
+                # allowing handling of just the log file opening error.
+
+                if sys.platform == 'win32':
+                    creationflags = subprocess.CREATE_NO_WINDOW
+                else:
+                    creationflags = 0
+
+                with open_log_file:
+                    # start_new_sessions to make the job independent of this controlling tty.
+                    p = subprocess.Popen(**args,  # type: ignore[call-overload]
                         shell=True,
-                        stdout=subprocess.DEVNULL,
+                        stdout=open_log_file,
                         stderr=subprocess.STDOUT,
-                        start_new_session=True)
-                log_message = 'Starting archive: ' + cmd
+                        start_new_session=True,
+                        creationflags=creationflags)
             # At least for now it seems that even if we get a new running
             # archive jobs list it doesn't contain the new rsync process.
             # My guess is that this is because the bash in the middle due to
@@ -50,9 +94,9 @@ def spawn_archive_process(dir_cfg, all_jobs, dryrun = False):
     if archiving_status is None:
         archiving_status = 'pid: ' + ', '.join(map(str, [x[0] for x in arch_jobs]))
 
-    return archiving_status, log_message
+    return archiving_status, log_messages
 
-def compute_priority(phase, gb_free, n_plots):
+def compute_priority(phase: job.Phase, gb_free: float, n_plots: int) -> int:
     # All these values are designed around dst buffer dirs of about
     # ~2TB size and containing k32 plots.  TODO: Generalize, and
     # rewrite as a sort function.
@@ -84,74 +128,83 @@ def compute_priority(phase, gb_free, n_plots):
 
     return priority
 
-def get_archdir_freebytes(arch_cfg):
-    archdir_freebytes = {}
-    just_df_cmd = 'df -aBK'
-    if arch_cfg.mode == 'remote':
-        df_cmd = ('ssh %s@%s %s | grep " %s/"' %
-            (arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, just_df_cmd, posixpath.normpath(arch_cfg.rsyncd_path)) )
-    elif arch_cfg.mode == 'local':
-        df_cmd = '%s | grep " %s/"' % (just_df_cmd, posixpath.normpath(arch_cfg.rsyncd_path))
-    else:
-        raise KeyError(f'Archive mode must be "remote" or "local" ({arch_cfg.mode!r} given). Please inspect plotman.yaml.')
-    with subprocess.Popen(df_cmd, shell=True, stdout=subprocess.PIPE) as proc:
-        for line in proc.stdout.readlines():
-            fields = line.split()
-            if fields[3] == b'-':
-                # not actually mounted
-                continue
-            freebytes = int(fields[3][:-1]) * 1024  # Strip the final 'K'
-            archdir = (fields[5]).decode('utf-8')
-            archdir_freebytes[archdir] = freebytes
-    return archdir_freebytes
+def get_archdir_freebytes(arch_cfg: configuration.Archiving) -> typing.Tuple[typing.Dict[str, int], typing.List[str]]:
+    log_messages = []
+    target = arch_cfg.target_definition()
 
-def rsync_dest(arch_cfg, arch_dir):
-    if arch_cfg.mode == 'remote':
-        rsync_path = arch_dir.replace(arch_cfg.rsyncd_path, arch_cfg.rsyncd_module)
-        if rsync_path.startswith('/'):
-            rsync_path = rsync_path[1:]  # Avoid dup slashes.  TODO use path join?
-        rsync_url = 'rsync://%s@%s:12000/%s' % (
-                arch_cfg.rsyncd_user, arch_cfg.rsyncd_host, rsync_path)
-    elif arch_cfg.mode == 'local':
-        rsync_url = arch_dir
+    archdir_freebytes = {}
+    timeout = 5
+    try:
+        completed_process = subprocess.run(
+            [target.disk_space_path],  # type: ignore[list-item]
+            env={**os.environ, **arch_cfg.environment()},
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        log_messages.append(f'Disk space check timed out in {timeout} seconds')
+        if e.stdout is None:
+            stdout = ''
+        else:
+            stdout = e.stdout.decode('utf-8', errors='ignore').strip()
+        if e.stderr is None:
+            stderr = ''
+        else:
+            stderr = e.stderr.decode('utf-8', errors='ignore').strip()
     else:
-        raise KeyError(f'Archive mode must be "remote" or "local" ("{arch_cfg.mode!r}" given). Please inspect plotman.yaml.')
-    return rsync_url
+        stdout = completed_process.stdout.decode('utf-8', errors='ignore').strip()
+        stderr = completed_process.stderr.decode('utf-8', errors='ignore').strip()
+        for line in stdout.splitlines():
+            line = line.strip()
+            split = line.split(':')
+            if len(split) != 2:
+                log_messages.append(f'Unable to parse disk script line: {line!r}')
+                continue
+            archdir, space = split
+            freebytes = int(space)
+            archdir_freebytes[archdir.strip()] = freebytes
+
+    for line in log_messages:
+        logger.info(line)
+
+    logger.info('stdout from disk space script:')
+    for line in stdout.splitlines():
+        logger.info(f'    {line}')
+
+    logger.info('stderr from disk space script:')
+    for line in stderr.splitlines():
+        logger.info(f'    {line}')
+
+    return archdir_freebytes, log_messages
 
 # TODO: maybe consolidate with similar code in job.py?
-def get_running_archive_jobs(dir_cfg):
+def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[int]:
     '''Look for running rsync jobs that seem to match the pattern we use for archiving
        them.  Return a list of PIDs of matching jobs.'''
-
-    arch_cfg = dir_cfg.archive
-    jobs = set()
-    dest = rsync_dest(arch_cfg, '/')
-    for proc in psutil.process_iter(['pid', 'name']):
+    jobs = []
+    target = arch_cfg.target_definition()
+    variables = {**os.environ, **arch_cfg.environment()}
+    dest = target.transfer_process_argument_prefix.format(**variables)
+    proc_name = target.transfer_process_name.format(**variables)
+    for proc in psutil.process_iter():
         with contextlib.suppress(psutil.NoSuchProcess):
-            if proc.name() == 'rsync':
-                if proc.parent() is None or proc.name() != proc.parent().name():
+            with proc.oneshot():
+                if proc.name() == proc_name:
                     args = proc.cmdline()
-                    is_related = False
-                    plot = None
-                    proc_dest = None
                     for arg in args:
                         if arg.startswith(dest):
-                            proc_dest = arg
-                            is_related = True
-                        for dst_dir in dir_cfg.get_dst_directories():
-                            if arg.startswith(dst_dir):
-                                plot = arg
-                    if is_related and plot and proc_dest:
-                        jobs.add((proc.pid, plot, proc_dest))
+                            jobs.append(proc.pid)
     return jobs
 
-def archive(dir_cfg, all_jobs, arch_jobs):
+def archive(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, all_jobs: typing.List[job.Job]) -> typing.Tuple[bool, typing.Optional[typing.Union[typing.Dict[str, object], str]], typing.List[str]]:
     '''Configure one archive job.  Needs to know all jobs so it can avoid IO
     contention on the plotting dstdir drives.  Returns either (False, <reason>)
     if we should not execute an archive job or (True, <cmd>) with the archive
     command if we should.'''
-    if dir_cfg.archive is None:
-        return (False, "No 'archive' settings declared in plotman.yaml")
+    log_messages: typing.List[str] = []
+    if arch_cfg is None:
+        return (False, "No 'archive' settings declared in plotman.yaml", log_messages)
 
     plots_being_archived = [job[1] for job in arch_jobs]
     archdirs_being_used = [job[2] for job in arch_jobs]
@@ -161,7 +214,7 @@ def archive(dir_cfg, all_jobs, arch_jobs):
     dst_dir = dir_cfg.get_dst_directories()
     for d in dst_dir:
         ph = dir2ph.get(d, job.Phase(0, 0))
-        dir_plots = [dir for dir in plot_util.list_k32_plots(d) if dir not in plots_being_archived]
+        dir_plots = plot_util.list_plots(d)
         gb_free = plot_util.df_b(d) / plot_util.GB
         n_plots = len(dir_plots)
         priority = compute_priority(ph, gb_free, n_plots)
@@ -170,10 +223,7 @@ def archive(dir_cfg, all_jobs, arch_jobs):
             chosen_plot = dir_plots[0]
 
     if not chosen_plot:
-        if plots_being_archived:
-            return False, None
-        else:
-            return False, 'No plots found'
+        return (False, 'No plots found', log_messages)
 
     # TODO: sanity check that archive machine is available
     # TODO: filter drives mounted RO
@@ -181,26 +231,35 @@ def archive(dir_cfg, all_jobs, arch_jobs):
     #
     # Pick first archive dir with sufficient space
     #
-    archdir_freebytes = get_archdir_freebytes(dir_cfg.archive)
+    archdir_freebytes, freebytes_log_messages = get_archdir_freebytes(arch_cfg)
+    log_messages.extend(freebytes_log_messages)
     if not archdir_freebytes:
-        return(False, 'No free archive dirs found.')
+        return(False, 'No free archive dirs found.', log_messages)
 
     archdir = ''
-    available = [(d, space) for (d, space) in archdir_freebytes.items() if plot_util.enough_space_for_k32(space)]
+    chosen_plot_size = os.stat(chosen_plot).st_size
+    # 10MB is big enough to outsize filesystem block sizes hopefully, but small
+    # enough to make this a pretty tight corner for people to get stuck in.
+    free_space_margin = 10_000_000
+    available = [(d, space) for (d, space) in archdir_freebytes.items() if
+                 space > (chosen_plot_size + free_space_margin)]
     if len(available) > 0:
-        min_index = min(dir_cfg.archive.index, len(available) - 1)
-        index = min(min_index + len(plots_being_archived), len(available) - 1)
+        index = min(arch_cfg.index, len(available) - 1)
         (archdir, freespace) = sorted(available)[index]
         while archdir and archdir in archdirs_being_used and index > min_index:
             index -= 1
             (archdir, freespace) = sorted(available)[index]
 
     if not archdir:
-        return(False, 'No archive directories found with enough free space')
+        return(False, 'No archive directories found with enough free space', log_messages)
 
-    bwlimit = dir_cfg.archive.rsyncd_bwlimit
-    throttle_arg = ('--bwlimit=%d' % bwlimit) if bwlimit else ''
-    cmd = ('rsync %s --compress-level=0 --remove-source-files -P %s %s' %
-            (throttle_arg, chosen_plot, rsync_dest(dir_cfg.archive, archdir)))
+    env = arch_cfg.environment(
+        source=chosen_plot,
+        destination=archdir,
+    )
+    subprocess_arguments: typing.Dict[str, object] = {
+        'args': arch_cfg.target_definition().transfer_path,
+        'env': {**os.environ, **env}
+    }
 
-    return (True, cmd)
+    return (True, subprocess_arguments, log_messages)
