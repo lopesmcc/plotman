@@ -7,8 +7,6 @@ import typing
 from plotman import chiapos
 import plotman.job
 
-from plotman import job
-
 GB = 1_000_000_000
 
 def df_b(d: str) -> int:
