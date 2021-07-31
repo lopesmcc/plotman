@@ -206,8 +206,9 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
             jobs, cfg.directories, cfg.scheduling, n_cols, 0, n_tmpdirs, tmp_prefix)
         dst_report = reporting.dst_dir_report(
             jobs, dst_dir, n_cols, dst_prefix)
+        hide_full = cfg.commands.interactive.hide_full_arch_dirs
         if archdir_freebytes is not None:
-            arch_report = reporting.arch_dir_report(archdir_freebytes, n_cols, arch_prefix)
+            arch_report = reporting.arch_dir_report(archdir_freebytes, n_cols, arch_prefix, hide_full)
             if not arch_report:
                 arch_report = '<no archive dir info>'
         else:

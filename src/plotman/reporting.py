@@ -228,9 +228,10 @@ def dst_dir_report(jobs: typing.List[job.Job], dstdirs: typing.List[str], width:
     tab.set_deco(0)  # No borders
     return tab.draw()  # type: ignore[no-any-return]
 
-def arch_dir_report(archdir_freebytes: typing.Dict[str, int], width: int, prefix: str = '') -> str:
+def arch_dir_report(archdir_freebytes: typing.Dict[str, int], width: int, prefix: str = '', hide_full: bool = False) -> str:
+    plot_size = plot_util.get_plotsize(32) + 10_000_000
     cells = ['%s:%5dG' % (abbr_path(d, prefix), int(int(space) / plot_util.GB))
-            for (d, space) in sorted(archdir_freebytes.items())]
+            for (d, space) in sorted(archdir_freebytes.items()) if (not hide_full) or space > plot_size]
     if not cells:
         return ''
 

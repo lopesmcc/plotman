@@ -365,6 +365,7 @@ class Interactive:
     autostart_plotting: bool = True
     autostart_archiving: bool = True
     show_logs: bool = True
+    hide_full_arch_dirs: bool = False
     start_plotter_cmd: Optional[str] = None
     stop_plotter_cmd: Optional[str] = None
     is_plotter_active_cmd: Optional[str] = None
