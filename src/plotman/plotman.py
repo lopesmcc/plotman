@@ -47,6 +47,8 @@ class PlotmanArgParser:
         p_interactive.add_argument('--autostart-archiving', action='store_true', default=None, dest='autostart_archiving')
         p_interactive.add_argument('--no-autostart-archiving', action='store_false', default=None, dest='autostart_archiving')
 
+        sp.add_parser('archmonitor', help='run archiver monitoring mode')
+
         sp.add_parser('dsched', help='print destination dir schedule')
 
         sp.add_parser('plot', help='run plotting loop')
