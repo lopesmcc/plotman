@@ -15,7 +15,7 @@ import typing
 import pendulum
 
 # Plotman libraries
-from plotman import analyzer, archive, configuration, interactive, manager, plot_util, reporting, csv_exporter
+from plotman import analyzer, archive, configuration, interactive, archive_monitor, manager, plot_util, reporting, csv_exporter
 from plotman import resources as plotman_resources
 from plotman.job import Job
 
@@ -244,6 +244,11 @@ def main() -> None:
                     cfg=cfg,
                     autostart_plotting=args.autostart_plotting,
                     autostart_archiving=args.autostart_archiving,
+                )
+
+            elif args.cmd == 'archmonitor':
+                archive_monitor.run_monitor(
+                    cfg=cfg,
                 )
 
             # Start running archival

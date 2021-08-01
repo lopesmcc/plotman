@@ -7,7 +7,7 @@ import typing
 import psutil
 import texttable as tt  # from somewhere?
 from itertools import groupby
-from plotman import archive, configuration, job, manager, plot_util
+from plotman import archive, configuration, archive_job, archive_monitor, job, manager, plot_util
 
 
 def abbr_path(path: str, putative_prefix: str) -> str:
@@ -58,6 +58,57 @@ def job_viz(jobs: typing.List[job.Job]) -> str:
     result += '4'
     result += n_to_char(n_at_ph(jobs, job.Phase(4, 0)))
     return result
+
+def archive_status_report(jobs: typing.List[ArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
+    abbreviate_jobs_list = False
+    n_begin_rows = 0
+    n_end_rows = 0
+    if height and height < len(jobs) + 1:  # One row for header
+        abbreviate_jobs_list = True
+
+        n_rows = height - 2  # Minus one for header, one for ellipsis
+        n_begin_rows = int(n_rows / 2)
+        n_end_rows = n_rows - n_begin_rows
+
+    tab = tt.Texttable()
+    headings = ['id', 'disk', 'plot id', 'plot k', 'plot ts', 'time', 'progress', 'bytes']
+    if height:
+        headings.insert(0, '#')
+    tab.header(headings)
+    tab.set_cols_dtype('t' * len(headings))
+    tab.set_cols_align('r' * len(headings))
+    tab.set_header_align('r' * len(headings))
+
+    for i, j in enumerate(sorted(jobs, key=archive_job.ArchiveJob.progress())):
+        # Elipsis row
+        if abbreviate_jobs_list and i == n_begin_rows:
+            row = ['...'] + ([''] * (len(headings) - 1))
+        # Omitted row
+        elif abbreviate_jobs_list and i > n_begin_rows and i < (len(jobs) - n_end_rows):
+            continue
+
+        # Regular row
+        else:
+            row = [j.job_id,
+                   str(j.disk),
+                   j.plot_id[:8],
+                   str(j.plot_k),
+                   datetime.fromtimestamp(j.plot_timestamp).strftime('%m-%d %H:%M'),
+                   plot_util.time_format(j.estimated_remaining_time()),
+                   str(j.progress()),
+                   plot_util.human_format(j.transferred_bytes, 0)
+                   ]
+
+            if height:
+                row.insert(0, '%3d' % i)
+
+        tab.add_row(row)
+
+    tab.set_max_width(width)
+    tab.set_deco(0)
+
+    return tab.draw()
+
 
 # Command: plotman status
 # Shows a general overview of all running jobs
