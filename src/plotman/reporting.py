@@ -59,7 +59,7 @@ def job_viz(jobs: typing.List[job.Job]) -> str:
     result += n_to_char(n_at_ph(jobs, job.Phase(4, 0)))
     return result
 
-def archive_status_report(jobs: typing.List[ArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
+def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
     abbreviate_jobs_list = False
     n_begin_rows = 0
     n_end_rows = 0
