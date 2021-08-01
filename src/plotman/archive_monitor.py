@@ -7,9 +7,8 @@ import subprocess
 import shlex
 import typing
 import sys
-import reporting
-import archive
-from job import Job
+from plotman import archive, configuration, manager, reporting, archive_job
+
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -35,7 +34,7 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
             do_full_refresh = True
         else:
             elapsed = (datetime.datetime.now() - last_refresh).total_seconds()
-            do_full_refresh = elapsed >= POLLING_TIME_S
+            do_full_refresh = elapsed >= cfg.scheduling.polling_time_s
 
         if do_full_refresh:
             last_refresh = datetime.datetime.now()
@@ -45,7 +44,7 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
                 archive_directories = list(archdir_freebytes.keys())
                 if len(archive_directories) > 0:
                     farm_path = os.path.commonpath(archive_directories)
-                    jobs = Job.get_running_jobs(farm_path=farm_path, prev_jobs=jobs)
+                    jobs = archive_job.ArchiveJob.get_running_jobs(farm_path=farm_path, prev_jobs=jobs)
 
         n_rows: int
         n_cols: int
@@ -96,7 +95,7 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
 
         header_win.addnstr(0, 0, 'Archiving Monitor', linecap, curses.A_BOLD)
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
-        refresh_msg = "now" if do_full_refresh else f"{int(elapsed)}s/{POLLING_TIME_S}"
+        refresh_msg = "now" if do_full_refresh else f"{int(elapsed)}s/{cfg.scheduling.polling_time_s}"
         header_win.addnstr(f" {timestamp} (refresh {refresh_msg})", linecap)
 
         header_win.addnstr('  |  Jobs: ', linecap, curses.A_BOLD)

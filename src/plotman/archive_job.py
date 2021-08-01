@@ -16,7 +16,7 @@ class ArchiveJob:
     timestamp: float
 
     @classmethod
-    def get_running_jobs(cls, farm_path: str, prev_jobs: Optional[List["ArchiveJob"]] = None) -> List["ArchiveJob"]:
+    def get_running_jobs(cls, farm_path: str, prev_jobs: List["ArchiveJob"] = []) -> List["ArchiveJob"]:
         path = farm_path.strip() if farm_path.strip().endswith('/') else farm_path.strip() + '/'
         jobs = []
         timeout = 20
@@ -55,7 +55,7 @@ class ArchiveJob:
                     plot_timestamp = datetime.timestamp(datetime(year, month, day, hour, minute))
                     prev_transferred_bytes = []
                     if prev_jobs is not None:
-                        prev_transferred_bytes = next([(job.timestamp, job.transferred_bytes)] + job.prev_transferred_bytes for job in prev_jobs if job.job_id == job_id)
+                        prev_transferred_bytes = next(([(job.timestamp, job.transferred_bytes)] + job.prev_transferred_bytes for job in prev_jobs if job.job_id == job_id), default=[])
                     job = cls(
                         job_id=job_id,
                         plot_id=plot_id,
