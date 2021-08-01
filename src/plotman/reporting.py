@@ -79,7 +79,7 @@ def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int,
     tab.set_cols_align('r' * len(headings))
     tab.set_header_align('r' * len(headings))
 
-    for i, j in enumerate(sorted(jobs, key=archive_job.ArchiveJob.progress())):
+    for i, j in enumerate(sorted(jobs, key=archive_job.ArchiveJob.progress)):
         # Elipsis row
         if abbreviate_jobs_list and i == n_begin_rows:
             row = ['...'] + ([''] * (len(headings) - 1))
