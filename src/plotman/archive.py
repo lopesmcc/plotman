@@ -190,8 +190,9 @@ def get_running_archive_pids(arch_cfg: configuration.Archiving) -> typing.List[i
     return jobs
 
 
-def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[str]:
+def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[psutil.Process]:
     jobs = set()
+    procs = []
     target = arch_cfg.target_definition()
     variables = {**os.environ, **arch_cfg.environment()}
     dest = target.transfer_process_argument_prefix.format(**variables)
@@ -203,8 +204,11 @@ def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[s
                     args = proc.cmdline()
                     for arg in args:
                         if arg.startswith(dest):
-                            jobs.add(' '.join(proc.cmdline()))
-    return list(jobs)
+                            cmdline = ' '.join(proc.cmdline())
+                            if cmdline not in jobs:
+                                jobs.add(cmdline)
+                                procs.append(proc)
+    return procs
 
 
 def archive(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, all_jobs: typing.List[job.Job]) -> typing.Tuple[bool, typing.Optional[typing.Union[typing.Dict[str, object], str]], typing.List[str]]:

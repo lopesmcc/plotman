@@ -11,6 +11,7 @@ from subprocess import DEVNULL, STDOUT, check_call, CalledProcessError
 
 from plotman import archive, configuration, manager, reporting
 from plotman.job import Job
+from plotman.archive_job import EgressArchiveJob
 
 
 ON_POSIX = 'posix' in sys.builtin_module_names
@@ -112,6 +113,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
 
     archdir_freebytes = None
     aging_reason = None
+    arch_jobs = None
 
     while True:
         # A full refresh scans for and reads info for running jobs from
@@ -131,6 +133,7 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         else:
             last_refresh = datetime.datetime.now()
             jobs = Job.get_running_jobs(cfg.logging.plots)
+            arch_jobs = EgressArchiveJob.get_archive_running_jobs(arch_cfg=cfg.archiving)
 
             if plotting_active or is_external_plotting_active(cfg):
                 (started, msg) = manager.maybe_start_new_plot(
@@ -224,9 +227,11 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         dst_w = len(max(dst_report.splitlines(), key=len)) + 1
         arch_h = len(arch_report.splitlines()) + 1
         arch_w = n_cols
+        arch_job_h = len(arch_jobs) + 2
+        arch_job_w = n_cols
 
         header_h = 3
-        dirs_h = max(tmp_h, dst_h) + arch_h
+        dirs_h = max(tmp_h, dst_h) + arch_job_h + arch_h
         remainder = n_rows - (header_h + dirs_h)
         jobs_h = max(5, math.floor(remainder * 0.6))
 
@@ -324,7 +329,13 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         dstwin.addstr(dst_report)
         dstwin.chgat(0, 0, curses.A_REVERSE)
 
-        archwin = curses.newwin(arch_h, arch_w, dirs_pos + maxtd_h, 0)
+        archjobwin = None
+        if arch_jobs:
+            archjobwin = curses.newwin(arch_job_h, arch_job_w, dirs_pos + maxtd_h, 0)
+            archjobwin.addstr(0, 0, 'Archive job', curses.A_REVERSE)
+            archjobwin.addstr(1, 0, reporting.arch_job_report(arch_jobs, n_cols, arch_job_h - 1))
+
+        archwin = curses.newwin(arch_h, arch_w, dirs_pos + maxtd_h + arch_job_h, 0)
         archwin.addstr(0, 0, 'Archive dirs free space', curses.A_REVERSE)
         archwin.addstr(1, 0, arch_report)
 
@@ -341,6 +352,8 @@ def curses_main(stdscr: typing.Any, cmd_autostart_plotting: typing.Optional[bool
         jobs_win.noutrefresh()
         tmpwin.noutrefresh()
         dstwin.noutrefresh()
+        if archjobwin is not None:
+            archjobwin.noutrefresh()
         archwin.noutrefresh()
         if cfg.commands.interactive.show_logs:
             log_win.noutrefresh()

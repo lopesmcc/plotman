@@ -55,7 +55,7 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
             prev_total_bytes_recv = total_bytes_recv
 
             archdir_freebytes, _ = archive.get_archdir_freebytes(cfg.archiving)
-            jobs = archive_job.ArchiveJob.get_running_jobs(arch_cfg=cfg.archiving, prev_jobs=jobs)
+            jobs = archive_job.IngressArchiveJob.get_archive_running_jobs(arch_cfg=cfg.archiving, prev_jobs=jobs)
 
         n_rows: int
         n_cols: int

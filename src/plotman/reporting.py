@@ -68,7 +68,7 @@ def progress_bar(progress, length=100, fill='█'):
     return f'|{bar}| {percent}%'
 
 
-def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
+def archive_status_report(jobs: typing.List[archive_job.IngressArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
     abbreviate_jobs_list = False
     n_begin_rows = 0
     n_end_rows = 0
@@ -88,7 +88,7 @@ def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int,
     tab.set_cols_align('r' * len(headings))
     tab.set_header_align('r' * len(headings))
 
-    for i, j in enumerate(sorted(jobs, key=archive_job.ArchiveJob.progress)):
+    for i, j in enumerate(sorted(jobs, key=archive_job.IngressArchiveJob.progress)):
         # Elipsis row
         if abbreviate_jobs_list and i == n_begin_rows:
             row = ['...'] + ([''] * (len(headings) - 1))
@@ -120,6 +120,51 @@ def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int,
 
     return tab.draw()
 
+
+def arch_job_report(jobs: typing.List[archive_job.EgressArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
+    abbreviate_jobs_list = False
+    n_begin_rows = 0
+    n_end_rows = 0
+    if height and height < len(jobs) + 1:  # One row for header
+        abbreviate_jobs_list = True
+
+        n_rows = height - 2  # Minus one for header, one for ellipsis
+        n_begin_rows = int(n_rows / 2)
+        n_end_rows = n_rows - n_begin_rows
+
+    tab = tt.Texttable()
+    headings = ['source', 'target', 'plot id', 'k', 'plot date', 'bw', 'elapsed', 'estimated progress']
+    tab.header(headings)
+    tab.set_cols_dtype('t' * len(headings))
+    tab.set_cols_align('r' * len(headings))
+    tab.set_header_align('r' * len(headings))
+
+    for i, j in enumerate(sorted(jobs, key=archive_job.EgressArchiveJob.progress)):
+        # Elipsis row
+        if abbreviate_jobs_list and i == n_begin_rows:
+            row = ['...'] + ([''] * (len(headings) - 1))
+        # Omitted row
+        elif abbreviate_jobs_list and i > n_begin_rows and i < (len(jobs) - n_end_rows):
+            continue
+
+        # Regular row
+        else:
+            row = [j.source_disk,
+                   j.dest_disk,
+                   j.plot_id[:8],
+                   str(j.plot_k),
+                   datetime.datetime.fromtimestamp(j.plot_timestamp).strftime('%m-%d %H:%M'),
+                   plot_util.human_format(j.bw_limit*1000, 0),
+                   plot_util.time_format(datetime.datetime.timestamp(datetime.datetime.now()) - j.start_timestamp),
+                   progress_bar(j.progress(), width - 130)
+                   ]
+
+        tab.add_row(row)
+
+    tab.set_max_width(width)
+    tab.set_deco(0)
+
+    return tab.draw()
 
 # Command: plotman status
 # Shows a general overview of all running jobs

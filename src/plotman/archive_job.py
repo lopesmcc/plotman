@@ -7,7 +7,78 @@ from typing import Tuple, List, Optional
 from plotman import plot_util, configuration, archive
 
 
-class ArchiveJob:
+class EgressArchiveJob:
+    plot_id: str
+    plot_k: int
+    plot_timestamp: float
+    source_disk: str
+    dest_disk: str
+    start_timestamp: float
+    bw_limit: int
+
+
+    @classmethod
+    def get_archive_running_jobs(cls, arch_cfg: configuration.Archiving) -> List["EgressArchiveJob"]:
+        procs = archive.get_running_archive_jobs(arch_cfg)
+        jobs = []
+        for proc in procs:
+            start_timestamp = proc.create_time()
+            split = proc.cmdline()
+            if len(split) != 7:
+                continue
+            plot_path = split[5]
+            dest_disk = split[6]
+            bw_limit = int(split[1].split('=')[1])
+            matches = re.search(r"^([/\w\d]+)/plot-k(\d{2})-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-([\w\d]+)\.plot$", plot_path)
+            if matches is not None:
+                groups = matches.groups()
+                source_disk = groups[0]
+                plot_k = int(groups[1])
+                year = int(groups[2])
+                month = int(groups[3])
+                day = int(groups[4])
+                hour = int(groups[5])
+                minute = int(groups[6])
+                plot_id = groups[7]
+                plot_timestamp = datetime.timestamp(datetime(year, month, day, hour, minute))
+                job = cls(
+                    plot_id=plot_id,
+                    plot_k=plot_k,
+                    plot_timestamp=plot_timestamp,
+                    source_disk=source_disk,
+                    dest_disk=dest_disk,
+                    start_timestamp=start_timestamp,
+                    bw_limit=bw_limit
+                )
+                jobs.append(job)
+        return jobs
+
+    def __init__(
+        self,
+        plot_id: str,
+        plot_k: int,
+        plot_timestamp: float,
+        source_disk: int,
+        dest_disk: int,
+        start_timestamp: float,
+        bw_limit: int
+    ) -> None:
+        self.plot_id = plot_id
+        self.plot_k = plot_k
+        self.plot_timestamp = plot_timestamp
+        self.source_disk = source_disk
+        self.dest_disk = dest_disk
+        self.start_timestamp = start_timestamp
+        self.bw_limit = bw_limit
+        self.timestamp = datetime.timestamp(datetime.now())
+
+    def progress(self) -> float:
+        now = datetime.timestamp(datetime.now())
+        elapsed = now - self.start_timestamp
+        return min(((elapsed * self.bw_limit * 1000) * 0.8) / plot_util.get_plotsize(self.plot_k), 1)
+
+
+class IngressArchiveJob:
     job_id: str
     plot_id: str
     plot_k: int
@@ -19,7 +90,7 @@ class ArchiveJob:
     timestamp: float
 
     @classmethod
-    def get_running_jobs(cls, arch_cfg: configuration.Archiving, prev_jobs: List["ArchiveJob"]) -> List["ArchiveJob"]:
+    def get_archive_running_jobs(cls, arch_cfg: configuration.Archiving, prev_jobs: List["IngressArchiveJob"]) -> List["IngressArchiveJob"]:
         local_jobs = archive.get_running_archive_jobs(arch_cfg)
 
         target = arch_cfg.target_definition()
@@ -65,7 +136,7 @@ class ArchiveJob:
                     minute = int(groups[6])
                     plot_id = groups[7]
                     job_id = groups[8]
-                    is_local = any(plot_id in local_job for local_job in local_jobs)
+                    is_local = any(plot_id in ' '.join(local_job.cmdline()) for local_job in local_jobs)
                     plot_timestamp = datetime.timestamp(datetime(year, month, day, hour, minute))
                     prev_transferred_bytes = []
                     if prev_jobs is not None:
