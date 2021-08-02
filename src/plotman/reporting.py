@@ -182,8 +182,7 @@ def status_report(jobs: typing.List[job.Job], width: int, height: typing.Optiona
         n_end_rows = n_rows - n_begin_rows
 
     tab = tt.Texttable()
-    headings = ['plot id', 'plotter', 'k', 'tmp', 'dst', 'wall', 'phase', 'tmp',
-            'pid', 'stat', 'mem', 'user', 'sys', 'io']
+    headings = ['plot id', 'plotter', 'k', 'tmp', 'dst', 'wall', 'phase', 'tmp', 'pid', 'stat', 'mem', 'user', 'sys', 'io']
     if height:
         headings.insert(0, '#')
     tab.header(headings)

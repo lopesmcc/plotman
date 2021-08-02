@@ -24,10 +24,15 @@ class EgressArchiveJob:
         for proc in procs:
             start_timestamp = proc.create_time()
             split = proc.cmdline()
-            if len(split) != 7:
+            if len(split) != 9:
                 continue
-            plot_path = split[5]
-            dest_disk = split[6]
+            plot_path = split[7]
+            dest_disk = split[8]
+            matches = re.search(r"^rsync://\S+@([\w\d]+):\d+/[\w\d]+/(\d+)/$", dest_disk)
+            if matches is not None:
+                groups = matches.groups()
+                dest_disk = f"/{groups[1]}@{groups[0]}"
+
             bw_limit = int(split[1].split('=')[1])
             matches = re.search(r"^([/\w\d]+)/plot-k(\d{2})-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-([\w\d]+)\.plot$", plot_path)
             if matches is not None:
