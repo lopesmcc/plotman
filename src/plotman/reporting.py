@@ -156,7 +156,7 @@ def arch_job_report(jobs: typing.List[archive_job.EgressArchiveJob], width: int,
                    datetime.datetime.fromtimestamp(j.plot_timestamp).strftime('%m-%d %H:%M'),
                    plot_util.human_format(j.bw_limit*1000, 0),
                    plot_util.time_format(datetime.datetime.timestamp(datetime.datetime.now()) - j.start_timestamp),
-                   progress_bar(j.progress(), width - 110)
+                   progress_bar(j.progress(), width - 90)
                    ]
 
         tab.add_row(row)
