@@ -1,5 +1,4 @@
 import contextlib
-import importlib
 import os
 import stat
 import subprocess
@@ -18,8 +17,6 @@ import marshmallow.validate
 import packaging.version
 import pendulum
 import yaml
-
-from plotman import resources as plotman_resources
 
 
 class ConfigurationException(Exception):

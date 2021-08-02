@@ -3,7 +3,7 @@ import json
 import math
 import os
 import typing
-
+import datetime
 import psutil
 import texttable as tt  # from somewhere?
 from itertools import groupby
@@ -59,6 +59,15 @@ def job_viz(jobs: typing.List[job.Job]) -> str:
     result += n_to_char(n_at_ph(jobs, job.Phase(4, 0)))
     return result
 
+
+# Print iterations progress
+def progress_bar(progress, length=100, fill='█'):
+    percent = "{:3.0f}".format(100 * progress)
+    filled_length = int(length * progress)
+    bar = fill * filled_length + '-' * (length - filled_length)
+    return f'|{bar}| {percent}%'
+
+
 def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int, height: typing.Optional[int] = None) -> str:
     abbreviate_jobs_list = False
     n_begin_rows = 0
@@ -71,7 +80,7 @@ def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int,
         n_end_rows = n_rows - n_begin_rows
 
     tab = tt.Texttable()
-    headings = ['id', 'disk', 'plot id', 'plot k', 'plot ts', 'time', 'progress', 'bytes']
+    headings = ['id', 'disk', 'source', 'plot id', 'k', 'plot date', 'bytes', 'rate', 'left', 'progress', ]
     if height:
         headings.insert(0, '#')
     tab.header(headings)
@@ -90,13 +99,15 @@ def archive_status_report(jobs: typing.List[archive_job.ArchiveJob], width: int,
         # Regular row
         else:
             row = [j.job_id,
-                   str(j.disk),
+                   f"{j.disk:03}",
+                   "local" if j.is_local else "remote",
                    j.plot_id[:8],
                    str(j.plot_k),
-                   datetime.fromtimestamp(j.plot_timestamp).strftime('%m-%d %H:%M'),
-                   plot_util.time_format(j.estimated_remaining_time()),
-                   str(j.progress()),
-                   plot_util.human_format(j.transferred_bytes, 0)
+                   datetime.datetime.fromtimestamp(j.plot_timestamp).strftime('%m-%d %H:%M'),
+                   plot_util.human_format(j.transferred_bytes, 0),
+                   plot_util.human_format(j.estimated_transfer_rate() * 8, 0) + 'b' if j.estimated_transfer_rate() is not None else '    ?',
+                   plot_util.time_format(j.estimated_remaining_time()) if j.estimated_remaining_time() is not None else '    ?',
+                   progress_bar(j.progress(), width - 96)
                    ]
 
             if height:

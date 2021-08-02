@@ -1,5 +1,4 @@
 import csv
-import sys
 import typing
 
 import attr

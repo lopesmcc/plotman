@@ -1,7 +1,6 @@
 import os
 import re
 import statistics
-import sys
 import typing
 
 import texttable as tt

@@ -1,14 +1,13 @@
 import curses
 import datetime
 import locale
-import math
 import os
 import subprocess
-import shlex
 import typing
 import sys
-from plotman import archive, configuration, manager, reporting, archive_job
-
+from plotman import archive, configuration, manager, reporting, archive_job, plot_util
+import time
+import psutil
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -19,11 +18,17 @@ class TerminalTooSmallError(Exception):
 def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
     curses.start_color()
     stdscr.nodelay(True)
-    stdscr.timeout(2000)
+    stdscr.timeout(1000)
 
     jobs = []
     last_refresh = None
     archdir_freebytes = None
+
+    prev_total_bytes_sent = 0
+    bytes_sent_rate = 0
+
+    prev_total_bytes_recv = 0
+    bytes_recv_rate = 0
 
     while True:
         # A full refresh scans for and reads info for running jobs from
@@ -39,12 +44,18 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
         if do_full_refresh:
             last_refresh = datetime.datetime.now()
 
+            total_bytes_sent = psutil.net_io_counters().bytes_sent
+            if prev_total_bytes_sent:
+                bytes_sent_rate = (total_bytes_sent - prev_total_bytes_sent) / cfg.scheduling.polling_time_s
+            prev_total_bytes_sent = total_bytes_sent
+
+            total_bytes_recv = psutil.net_io_counters().bytes_recv
+            if prev_total_bytes_recv:
+                bytes_recv_rate = (total_bytes_recv - prev_total_bytes_recv) / cfg.scheduling.polling_time_s
+            prev_total_bytes_recv = total_bytes_recv
+
             archdir_freebytes, _ = archive.get_archdir_freebytes(cfg.archiving)
-            if archdir_freebytes is not None:
-                archive_directories = list(archdir_freebytes.keys())
-                if len(archive_directories) > 0:
-                    farm_path = os.path.commonpath(archive_directories)
-                    jobs = archive_job.ArchiveJob.get_running_jobs(farm_path=farm_path, prev_jobs=jobs)
+            jobs = archive_job.ArchiveJob.get_running_jobs(arch_cfg=cfg.archiving, prev_jobs=jobs)
 
         n_rows: int
         n_cols: int
@@ -58,6 +69,7 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
         stdscr.resize(n_rows, n_cols)
         curses.resize_term(n_rows, n_cols)
 
+        arch_prefix = ''
         if archdir_freebytes is not None:
             archive_directories = list(archdir_freebytes.keys())
             if len(archive_directories) == 0:
@@ -98,12 +110,17 @@ def curses_main(stdscr: typing.Any, cfg: configuration.PlotmanConfig) -> None:
         refresh_msg = "now" if do_full_refresh else f"{int(elapsed)}s/{cfg.scheduling.polling_time_s}"
         header_win.addnstr(f" {timestamp} (refresh {refresh_msg})", linecap)
 
-        header_win.addnstr('  |  Jobs: ', linecap, curses.A_BOLD)
+        # Oneliner progress display
+        header_win.addnstr(1, 0, 'Jobs: ', linecap)
         header_win.addnstr('%d' % len(jobs), linecap, curses.color_pair(2))
 
-        # Oneliner progress display
-        header_win.addnstr(1, 0, 'Jobs (%d): ' % len(jobs), linecap)
-        header_win.addnstr('[' + reporting.job_viz(jobs) + ']', linecap)
+        if bytes_sent_rate:
+            header_win.addnstr(' | Network Tx/s: ', linecap)
+            header_win.addnstr("%sb" % plot_util.human_format(bytes_sent_rate * 8, 2), linecap, curses.color_pair(2))
+
+        if bytes_recv_rate:
+            header_win.addnstr(' Rx/s: ', linecap)
+            header_win.addnstr("%sb" % plot_util.human_format(bytes_recv_rate * 8, 2), linecap, curses.color_pair(2))
 
         # Jobs
         jobs_win.addstr(0, 0, reporting.archive_status_report(jobs, n_cols, jobs_h))

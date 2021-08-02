@@ -1,19 +1,12 @@
-import argparse
 import contextlib
 import logging
-import math
 import os
-import posixpath
-import random
-import re
 import subprocess
 import sys
 import typing
-from datetime import datetime
 
 import pendulum
 import psutil
-import texttable as tt
 
 from plotman import configuration, job, manager, plot_util
 
@@ -33,7 +26,7 @@ def spawn_archive_process(dir_cfg: configuration.Directories, arch_cfg: configur
 
     # Look for running archive jobs.  Be robust to finding more than one
     # even though the scheduler should only run one at a time.
-    arch_jobs: typing.List[typing.Union[int, str]] = [*get_running_archive_jobs(arch_cfg)]
+    arch_jobs: typing.List[typing.Union[int, str]] = [*get_running_archive_pids(arch_cfg)]
 
     if not arch_jobs:
         (should_start, status_or_cmd, archive_log_messages) = archive(dir_cfg, arch_cfg, all_jobs)
@@ -178,7 +171,7 @@ def get_archdir_freebytes(arch_cfg: configuration.Archiving) -> typing.Tuple[typ
     return archdir_freebytes, log_messages
 
 # TODO: maybe consolidate with similar code in job.py?
-def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[int]:
+def get_running_archive_pids(arch_cfg: configuration.Archiving) -> typing.List[int]:
     '''Look for running rsync jobs that seem to match the pattern we use for archiving
        them.  Return a list of PIDs of matching jobs.'''
     jobs = []
@@ -195,6 +188,24 @@ def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[i
                         if arg.startswith(dest):
                             jobs.append(proc.pid)
     return jobs
+
+
+def get_running_archive_jobs(arch_cfg: configuration.Archiving) -> typing.List[str]:
+    jobs = set()
+    target = arch_cfg.target_definition()
+    variables = {**os.environ, **arch_cfg.environment()}
+    dest = target.transfer_process_argument_prefix.format(**variables)
+    proc_name = target.transfer_process_name.format(**variables)
+    for proc in psutil.process_iter():
+        with contextlib.suppress(psutil.NoSuchProcess):
+            with proc.oneshot():
+                if proc.name() == proc_name:
+                    args = proc.cmdline()
+                    for arg in args:
+                        if arg.startswith(dest):
+                            jobs.add(' '.join(proc.cmdline()))
+    return list(jobs)
+
 
 def archive(dir_cfg: configuration.Directories, arch_cfg: configuration.Archiving, all_jobs: typing.List[job.Job]) -> typing.Tuple[bool, typing.Optional[typing.Union[typing.Dict[str, object], str]], typing.List[str]]:
     '''Configure one archive job.  Needs to know all jobs so it can avoid IO
