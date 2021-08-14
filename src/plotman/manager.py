@@ -154,6 +154,12 @@ def maybe_start_new_plot(dir_cfg: plotman.configuration.Directories, sched_cfg: 
                 if tmpdir2 is not None:
                     plot_args.append('-2')
                     plot_args.append(tmpdir2 if tmpdir2.endswith('/') else (tmpdir2 + '/'))
+                if plotting_cfg.madmax.n_buckets3 is not None:
+                    plot_args.append('-v')
+                    plot_args.append(str(plotting_cfg.madmax.n_buckets3))
+                if plotting_cfg.madmax.n_rmulti2 is not None:
+                    plot_args.append('-K')
+                    plot_args.append(str(plotting_cfg.madmax.n_rmulti2))
                 if plotting_cfg.madmax.cpu_affinity_enabled:
                     threads = plotting_cfg.madmax.n_threads
                     cpus_being_used = sum([job.get_cpu_affinity() for job in jobs], [])

@@ -334,6 +334,8 @@ class MadmaxPlotterOptions:
     n_threads: int = 4
     n_buckets: int = 256
     cpu_affinity_enabled: bool = False
+    n_buckets3: int = 256
+    n_rmulti2: int = 1
 
 @attr.frozen
 class Plotting:
